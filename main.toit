@@ -1,4 +1,5 @@
 import gpio
+import gpio.adc
 
 main:
     DO1 = gpio.Pin 27 --output
@@ -13,15 +14,15 @@ main:
     DI4 = gpio.Pin 16 --input
     DI5 = gpio.Pin 17 --input
     
-    SDA = gpio.Pin 33 
-    SCL = gpio.Pin 22  
+    I2C_SDA = gpio.Pin 33 
+    I2C_SCL = gpio.Pin 22  
 
     SPI_MISO = gpio.Pin 19 
     SPI_MOSI = gpio.Pin 23 
     SPI_CLK = gpio.Pin 18 
     SPI_CS = gpio.Pin 39 
 
-    ADC1_4 = gpio.Pin 32
+    ADC1_4 = adc.Adc (gpio.Pin 32)
     ADC1_6 = gpio.Pin 34
 
     blink DO1
@@ -33,4 +34,3 @@ blink pin/gpio.Pin:
     pin.set 1
     sleep --ms=1000
     pin.set 0
-    pin.close
