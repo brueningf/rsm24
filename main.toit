@@ -6,7 +6,7 @@ main:
     DO2 = gpio.Pin 26 --output
     DO3 = gpio.Pin 25 --output
     DO4 = gpio.Pin 14 --output
-    DO5 = gpio.Pin 14 --output
+    // DO5 = gpio.Pin 14 --output
     
     DI1 = gpio.Pin 35 --input
     DI2 = gpio.Pin 13 --input
@@ -22,8 +22,11 @@ main:
     SPI_CLK = gpio.Pin 18 
     SPI_CS = gpio.Pin 39 
 
-    ADC1_4 = adc.Adc (gpio.Pin 32)
-    ADC1_6 = gpio.Pin 34
+    ADC1_6 = adc.Adc (gpio.Pin 34)
+    ADC1_4 = gpio.Pin 32
+
+    PPCTGR = gpio.Pin 2 --output
+    CLOLVL = gpio.Pin 21 --input
 
     blink DO1
     blink DO2
