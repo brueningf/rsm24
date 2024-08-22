@@ -1,0 +1,42 @@
+sdk: ^2.0.0-alpha.145
+prefixes:
+  bme280: bme280-driver
+  certificate_roots: toit-cert-roots
+  http: pkg-http
+  pixel_display: toit-pixel-display
+  ssd1306: toit-ssd1306
+packages:
+  bme280-driver:
+    url: github.com/toitware/bme280-driver
+    name: bme280
+    version: 1.0.0
+    hash: 65b88ac19a5e2b48627a2dbae6d7757ae45c502c
+  pkg-http:
+    url: github.com/toitlang/pkg-http
+    name: http
+    version: 2.7.2
+    hash: 614dd0f374e70aab09f12e9466a35b779b9a8d63
+  toit-cert-roots:
+    url: github.com/toitware/toit-cert-roots
+    name: certificate_roots
+    version: 1.6.1
+    hash: 55d3be82ed53d8d332338b2de931865cf69fe48b
+  toit-pixel-display:
+    url: github.com/toitware/toit-pixel-display
+    name: pixel_display
+    version: 2.8.0
+    hash: d7789ab67f6f0cde4e6df40b7aac88a56b871ca7
+    prefixes:
+      png-tools: toit-png-tools
+  toit-png-tools:
+    url: github.com/toitware/toit-png-tools
+    name: png-tools
+    version: 1.0.0
+    hash: ee472ac9d4333a138206f9d3a817d3c5432d6f87
+  toit-ssd1306:
+    url: github.com/toitware/toit-ssd1306
+    name: ssd1306
+    version: 2.0.1
+    hash: ee2e6e699daa86d961538775aaea642a839025b7
+    prefixes:
+      pixel_display: toit-pixel-display
