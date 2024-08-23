@@ -1,22 +1,47 @@
 import gpio
 import gpio.adc
 import i2c
+import uart
+
+import http
+import net
+import .index
 
 import font show *
 import pixel-display show *
 import pixel-display.two-color show *
-import ssd1306 show *
 
+import ssd1306 show *
 import bme280
 
-import http
-import net
+DO1 := gpio.Pin 27 --output
+DO2 := gpio.Pin 26 --output
+DO3 := gpio.Pin 25 --output
+DO4 := gpio.Pin 13 --output
+DO5 := gpio.Pin 14 --output
 
-INDEX-HTML ::= """
-<!DOCTYPE html>
-  Hello fred
-</html>
-"""
+DI1 := gpio.Pin 36 --input
+DI2 := gpio.Pin 39 --input
+DI3 := gpio.Pin 35 --input
+DI4 := gpio.Pin 4 --input
+DI5 := gpio.Pin 16 --input
+
+I2C-SDA := gpio.Pin 33 
+I2C-SCL := gpio.Pin 22  
+I2C-BUS := i2c.Bus --sda=I2C-SDA --scl=I2C-SCL
+
+SPI-MISO := gpio.Pin 19 
+SPI-MOSI := gpio.Pin 23 
+SPI-CLK := gpio.Pin 18 
+SPI-CS := gpio.Pin 5
+SPI-RESET := gpio.Pin 17
+
+//ADC1-6 := adc.Adc (gpio.Pin 34)
+ADC1-4 := adc.Adc (gpio.Pin 32)
+
+PPCTGR := gpio.Pin 2 --output
+CLOLVL := gpio.Pin 21 --input
+
 
 current-date:
   now := Time.now.local
@@ -26,68 +51,57 @@ current-time:
   now := Time.now.local
   return "$(%02d now.h):$(%02d now.m):$(%02d now.s)"
 
+generate-client-data:
+    devices := I2C-BUS.scan
+    return { 
+      "i2c": devices.stringify, 
+      "adc": ADC1-4.get.stringify,
+        //"temperature": "$driver.read-temperature C",
+        // "pressure": "$driver.read-pressure Pa",
+        // "humidity": "$driver.read-humidity %"
+    }.stringify
+
 main:
     network := net.open
     server-socket := network.tcp-listen 80
-    port := server-socket.local-address.port
+    clients := []
 
-    DO1 := gpio.Pin 27 --output
-    DO2 := gpio.Pin 26 --output
-    DO3 := gpio.Pin 25 --output
-    DO4 := gpio.Pin 13 --output
-    DO5 := gpio.Pin 14 --output
-    
-    DI1 := gpio.Pin 36 --input
-    DI2 := gpio.Pin 39 --input
-    DI3 := gpio.Pin 35 --input
-    DI4 := gpio.Pin 4 --input
-    DI5 := gpio.Pin 16 --input
-    
-    I2C_SDA := gpio.Pin 33 
-    I2C_SCL := gpio.Pin 22  
-    I2C_BUS := i2c.Bus --sda=I2C_SDA --scl=I2C_SCL
-
-    SPI_MISO := gpio.Pin 19 
-    SPI_MOSI := gpio.Pin 23 
-    SPI_CLK := gpio.Pin 18 
-    SPI_CS := gpio.Pin 5
-    SPI_RESET := gpio.Pin 17
-
-    //ADC1_6 := adc.Adc (gpio.Pin 34)
-    ADC1_4 := adc.Adc (gpio.Pin 32)
-
-    PPCTGR := gpio.Pin 2 --output
+    // invert pump
     PPCTGR.set 1
-    CLOLVL := gpio.Pin 21 --input
 
-    device := I2C_BUS.device 0x77
+    rx := gpio.Pin 3
+    port := uart.Port
+        --rx=rx
+        --tx=null
+        --baud-rate=115200
 
     task::
-        clients := []
+      out := ""
+      while true:
+        while in/ByteArray := port.in.read:
+            out += in.to-string
+        print "log: $out"
+        sleep --ms=500
+
+    task::
         server := http.Server --max-tasks=5
         server.listen server-socket:: | request/http.RequestIncoming response-writer/http.ResponseWriter |
           if request.path == "/" or request.path == "/index.html":
-            devices := I2C_BUS.scan
-
-            data := { 
-              "i2c": devices.stringify, 
-              "adc": ADC1_4.get.stringify,
-              //"temperature": "$driver.read-temperature C",
-              // "pressure": "$driver.read-pressure Pa",
-              // "humidity": "$driver.read-humidity %"
-            }
-
             response-writer.headers.add "Content-Type" "text/html"
-            response-writer.out.write data.stringify
+            response-writer.out.write (index generate-client-data)
           else if request.path == "/ws":
             web-socket := server.web-socket request response-writer
             clients.add web-socket
-            while data := web-socket.receive:
-              clients.do: it.send data
+            while chat := web-socket.receive:
+              clients.do: it.send chat
             clients.remove web-socket
           else:
             response-writer.write-headers http.STATUS-NOT-FOUND --message="Not Found"
 
+    task::
+        while true:
+          clients.do: it.send generate-client-data
+          sleep --ms=1000
     // task::
         
     //     devices := I2C-BUS.scan
