@@ -2,12 +2,18 @@ dependencies:
   bme280:
     url: github.com/toitware/bme280-driver
     version: ^1.0.0
+  bmp280:
+    url: github.com/harshkc03/bmp280-driver
+    version: ^1.0.0
   certificate_roots:
     url: github.com/toitware/toit-cert-roots
     version: ^1.6.1
   http:
     url: github.com/toitlang/pkg-http
     version: ^2.7.2
+  ntp:
+    url: github.com/toitlang/pkg-ntp
+    version: ^1.1.0
   pixel_display:
     url: github.com/toitware/toit-pixel-display
     version: ^2.8.0

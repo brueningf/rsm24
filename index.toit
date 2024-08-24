@@ -29,12 +29,24 @@ index data:
             border-radius: 5px;
         }
     </style>
-    <script>var stats = $data.stringify</script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://cdnjs.com/libraries/Chart.js"></script>
+    <script>var stats = "$data.stringify"</script>
 </head>
 <body>
     <h1>Remote station server</h1>
-    <div id="messages"></div>
-    <input id="input" type="text" placeholder="Type your message and hit Enter...">
+    <div class="grid grid-cols-4">
+      <div>
+        <div id="messages"></div>
+        <input id="input" type="text" placeholder="Type your message and hit Enter...">
+      </div>
+      <div>
+        <h3>Temperature<h3/>
+        <div id=""></div>
+      </div>
+    </div>
 <script>
     var ws = new WebSocket('ws://' + window.location.host + '/ws');
     var messages = document.getElementById('messages');
@@ -43,7 +55,8 @@ index data:
     ws.onmessage = function(event) {
         console.log(event.data)
         var message = document.createElement('p');
-        message.textContent = event.data;
+        data = event.data;
+        message.textContent = data;
         messages.appendChild(message);
         messages.scrollTop = messages.scrollHeight;
     };
@@ -54,6 +67,7 @@ index data:
             input.value = '';
         }
     });
+
 </script>
 </body>
 </html>

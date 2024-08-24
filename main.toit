@@ -2,17 +2,17 @@ import gpio
 import gpio.adc
 import i2c
 import uart
+import ntp
+import esp32 show adjust-real-time-clock
 
 import http
 import net
 import .index
 
-import font show *
-import pixel-display show *
-import pixel-display.two-color show *
+import .melody
 
-import ssd1306 show *
-import bme280
+import bmp280
+
 
 DO1 := gpio.Pin 27 --output
 DO2 := gpio.Pin 26 --output
@@ -36,11 +36,14 @@ SPI-CLK := gpio.Pin 18
 SPI-CS := gpio.Pin 5
 SPI-RESET := gpio.Pin 17
 
-//ADC1-6 := adc.Adc (gpio.Pin 34)
+ADC1-6 := adc.Adc (gpio.Pin 34)
 ADC1-4 := adc.Adc (gpio.Pin 32)
 
 PPCTGR := gpio.Pin 2 --output
 CLOLVL := gpio.Pin 21 --input
+
+device := I2C-BUS.device bmp280.I2C_ADDRESS_ALT
+driver := bmp280.Bmp280 device
 
 
 current-date:
@@ -53,21 +56,36 @@ current-time:
 
 generate-client-data:
     devices := I2C-BUS.scan
+
+    driver.on
     return { 
       "i2c": devices.stringify, 
-      "adc": ADC1-4.get.stringify,
-        //"temperature": "$driver.read-temperature C",
-        // "pressure": "$driver.read-pressure Pa",
+      "adc4": ADC1-4.get.stringify,
+      "adc6": ADC1-6.get.stringify,
+      "DI5": DI5.get,
+      "temperature": "$driver.read-temperature C",
+      "pressure": "$driver.read-pressure Pa",
         // "humidity": "$driver.read-humidity %"
     }.stringify
 
 main:
+    now := Time.now
+    if now < (Time.parse "2022-01-10T00:00:00Z"):
+      result ::= ntp.synchronize
+      if result:
+        adjust-real-time-clock result.adjustment
+
     network := net.open
     server-socket := network.tcp-listen 80
     clients := []
 
+    // set output 5 default    
+    DO5.set 0
+
     // invert pump
     PPCTGR.set 1
+
+
 
     rx := gpio.Pin 3
     port := uart.Port
@@ -101,38 +119,7 @@ main:
     task::
         while true:
           clients.do: it.send generate-client-data
-          sleep --ms=1000
-    // task::
-        
-    //     devices := I2C-BUS.scan
-      
-    //     device := I2C-BUS.device Ssd1306.I2C-ADDRESS
-    //     driver := Ssd1306.i2c device
-    //     display := PixelDisplay.two-color driver
-    //     display.background = BLACK
-      
-    //     sans := Font.get "sans10"
-    //     [
-    //       Label --x=30 --y=20 --text="Toit",
-    //       Label --x=30 --y=40 --id="date",
-    //       Label --x=30 --y=60 --id="time",
-    //     ].do: display.add it
-      
-    //     STYLE ::= Style
-    //         --type-map={
-    //             "label": Style --font=sans --color=WHITE,
-    //         }
-    //     display.set-styles [STYLE]
-      
-    //     date/Label := display.get-element-by-id "date"
-    //     time/Label := display.get-element-by-id "time"
-
-    //     // display
-    //     while true:
-    //       date.text = current-date
-    //       time.text = current-time
-    //       display.draw
-    //       sleep --ms=250
+          sleep --ms=5000
     
     task::
         // pump and switch
@@ -145,11 +132,12 @@ main:
 
     task::
         // speaker
+        melody-channel := Melody DO1
+
         while true:
-          DO1.set 1
-          sleep --ms=10
-          DO1.set 0
-          sleep --ms=5000
+          // melody_channel.play "e4e4-=e4-=c4e4-=g4-=-=g3"
+          melody-channel.play "c5"
+          sleep --ms=120000
 
     task::
         while true:

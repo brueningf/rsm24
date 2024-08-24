@@ -1,8 +1,10 @@
 sdk: ^2.0.0-alpha.145
 prefixes:
   bme280: bme280-driver
+  bmp280: bmp280-driver
   certificate_roots: toit-cert-roots
   http: pkg-http
+  ntp: pkg-ntp
   pixel_display: toit-pixel-display
   ssd1306: toit-ssd1306
 packages:
@@ -11,11 +13,21 @@ packages:
     name: bme280
     version: 1.0.0
     hash: 65b88ac19a5e2b48627a2dbae6d7757ae45c502c
+  bmp280-driver:
+    url: github.com/harshkc03/bmp280-driver
+    name: bmp280
+    version: 1.0.0
+    hash: 17824b46f0fd5b9355e616de4bb5603dd6e9f6eb
   pkg-http:
     url: github.com/toitlang/pkg-http
     name: http
     version: 2.7.2
     hash: 614dd0f374e70aab09f12e9466a35b779b9a8d63
+  pkg-ntp:
+    url: github.com/toitlang/pkg-ntp
+    name: ntp
+    version: 1.1.0
+    hash: e69bb1abc0d3d4aa7642eec3360e52744e4d011d
   toit-cert-roots:
     url: github.com/toitware/toit-cert-roots
     name: certificate_roots
