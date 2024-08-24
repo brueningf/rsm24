@@ -6,6 +6,8 @@ import ntp
 import esp32 show adjust-real-time-clock
 import encoding.json
 
+import watchdog show WatchdogServiceClient
+
 import http
 import net
 import .index
@@ -82,13 +84,13 @@ generate-client-data:
 
     i2c-read-exception := catch:
       driver.on
-      temperature = "$driver.read-temperature C"
-      pressure = "$driver.read-pressure Pa"
+      temperature = driver.read-temperature.stringify 2
+      pressure = "$driver.read-pressure"
     if i2c-read-exception:
       // log it
     adc-read-exception := catch:
-      adc4 = ADC1-4.get.stringify 3
-      adc6 = ADC1-4.get.stringify 3
+      adc4 = ADC1-4.get.stringify 2
+      adc6 = ADC1-6.get.stringify 3
     if adc-read-exception:
       // log it
 
@@ -105,6 +107,10 @@ generate-client-data:
 
 main:
     update-time
+    client := WatchdogServiceClient
+    client.open  // Now connects to the shared watchdog provider.
+
+    dog := client.create "doggy"
 
     network := net.open
     server-socket := network.tcp-listen 80
@@ -121,6 +127,16 @@ main:
         --rx=rx
         --tx=null
         --baud-rate=115200
+
+    task::
+      // Require a feeding every 60 seconds.
+      dog.start --s=60
+
+      while true:
+        dog.feed
+        sleep --ms=30000
+      dog.stop
+      dog.close
 
     task::
       out := ""
@@ -147,7 +163,10 @@ main:
 
     task::
         while true:
-          clients.do: it.send generate-client-data
+          data := generate-client-data
+          socket-exception := catch:
+            clients.do: 
+              it.send data
           sleep --ms=5000
     
     task::

@@ -36,6 +36,8 @@ index data:
     <h1>Remote station server</h1>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
+        <div id="inputs"></div>
+        <div id="outputs"></div>
         <div id="messages"></div>
         <input id="input" type="text" placeholder="Type your message and hit Enter...">
       </div>
@@ -91,10 +93,29 @@ index data:
         console.log(event.data)
         var message = document.createElement('p');
         data = JSON.parse(event.data);
+
+        var el = document.getElementById("inputs")
+        el.innerHTML = "";
+
+        for(var input in data.inputs) {
+          var div = document.createElement('div');
+          div.textContent = "DI" + input + ": " + data.inputs[input];
+          el.appendChild(div);
+        }
+
+        var el = document.getElementById("outputs")
+        el.innerHTML = "";
+
+        for(var input in data.outputs) {
+          var div = document.createElement('div');
+          div.textContent = "DO" + input + ": " + data.outputs[input];
+          el.appendChild(div);
+        }
+
         // Create a new Date object from the timestamp
         var date = new Date(Date.now());
         // Format the time as HH:MM:SS
-        var currentTime = date.toISOString().substr(11, 8);
+        var currentTime = date.toLocaleString('en-US', { timeZone: 'America/Lima' }).substr(11, 8);
         
         if(data.temperature) {
             temperature.push({

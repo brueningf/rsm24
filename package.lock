@@ -4,6 +4,7 @@ prefixes:
   certificate_roots: toit-cert-roots
   http: pkg-http
   ntp: pkg-ntp
+  watchdog: toit-watchdog
 packages:
   bmp280-driver:
     url: github.com/harshkc03/bmp280-driver
@@ -25,3 +26,8 @@ packages:
     name: certificate_roots
     version: 1.6.1
     hash: 55d3be82ed53d8d332338b2de931865cf69fe48b
+  toit-watchdog:
+    url: github.com/toitware/toit-watchdog
+    name: watchdog
+    version: 1.4.0
+    hash: 3dccabf427af3a8ba3ef48429244ece0956fa684
