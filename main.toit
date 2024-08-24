@@ -14,13 +14,16 @@ import .index
 
 import bmp280
 
+PPCTGR := gpio.Pin 2 --output
+CLOLVL := gpio.Pin 21 --input
 
 outputs := {
-  "1": (gpio.Pin 27 --output),
-  "2": (gpio.Pin 26 --output),
-  "3": (gpio.Pin 25 --output),
-  "4": (gpio.Pin 13 --output),
-  "5": (gpio.Pin 14 --output),
+  "1": { "pin": (gpio.Pin 27 --output), "state": 0 },
+  "2": { "pin": (gpio.Pin 26 --output), "state": 0 },
+  "3": { "pin": (gpio.Pin 25 --output), "state": 0 },
+  "4": { "pin": (gpio.Pin 13 --output), "state": 0 },
+  "5": { "pin": (gpio.Pin 14 --output), "state": 0 },
+  "PPCTGR": { "pin": PPCTGR, "state": 0 }
 }
 
 inputs := {
@@ -29,6 +32,7 @@ inputs := {
   "3": (gpio.Pin 35 --input),
   "4": (gpio.Pin 4 --input),
   "5": (gpio.Pin 16 --input),
+  "CLOLVL": CLOLVL,
 }
 
 I2C-SDA := gpio.Pin 33 
@@ -44,8 +48,7 @@ SPI-RESET := gpio.Pin 17
 ADC1-6 := adc.Adc (gpio.Pin 34)
 ADC1-4 := adc.Adc (gpio.Pin 32)
 
-PPCTGR := gpio.Pin 2 --output
-CLOLVL := gpio.Pin 21 --input
+
 
 device := I2C-BUS.device bmp280.I2C_ADDRESS_ALT
 driver := bmp280.Bmp280 device
@@ -59,10 +62,8 @@ current-time:
   return "$(%02d now.h):$(%02d now.m):$(%02d now.s)"
 
 get-values pins/Map:
-  values := pins.copy
-  pins.do: 
-    values[it] = pins[it].get
-  return values
+  return pins.map: | k v |
+    v.get
 
 update-time:
   set-timezone "<-05>5"
@@ -95,7 +96,7 @@ generate-client-data:
       // log it
 
     return json.stringify { 
-      "outputs": get-values outputs,
+      "outputs": outputs.map: | k v | v["state"],
       "inputs": get-values inputs,
       "i2c": devices.stringify, 
       "adc4": adc4,
@@ -117,7 +118,7 @@ main:
     clients := []
     
     // set default output to low
-    outputs.do: outputs[it].set 0
+    outputs.do: outputs[it]["pin"].set 0
 
     // invert pump
     PPCTGR.set 1
@@ -174,16 +175,18 @@ main:
         while true:
           if CLOLVL.get == 1:
             PPCTGR.set 0
+            outputs["PPCTGR"]["state"] = 0
           else:
             PPCTGR.set 1
+            outputs["PPCTGR"]["state"] = 1
           sleep --ms=300
 
     task::
         // speaker
         while true:
-          outputs["1"].set 1
+          outputs["1"]["pin"].set 1
           sleep --ms=12
-          outputs["1"].set 0
+          outputs["1"]["pin"].set 0
           sleep --ms=120000
 
     task::
@@ -194,15 +197,13 @@ main:
           send-to-output inputs["5"] outputs["5"]
           sleep --ms=100
 
-send-to-output in/gpio.Pin out/gpio.Pin:
+send-to-output in/gpio.Pin out/Map:
     if in.get == 0:
-      out.set 1
+      out["pin"].set 1
+      out["state"] = 1
     else:
-      out.set 0
+      out["pin"].set 0
+      out["state"] = 0
 
-blink pin/gpio.Pin:
-    pin.set 1
-    sleep --ms=1000
-    pin.set 0
     
 
