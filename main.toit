@@ -4,27 +4,30 @@ import i2c
 import uart
 import ntp
 import esp32 show adjust-real-time-clock
+import encoding.json
 
 import http
 import net
 import .index
 
-import .melody
-
 import bmp280
 
 
-DO1 := gpio.Pin 27 --output
-DO2 := gpio.Pin 26 --output
-DO3 := gpio.Pin 25 --output
-DO4 := gpio.Pin 13 --output
-DO5 := gpio.Pin 14 --output
+outputs := {
+  "1": (gpio.Pin 27 --output),
+  "2": (gpio.Pin 26 --output),
+  "3": (gpio.Pin 25 --output),
+  "4": (gpio.Pin 13 --output),
+  "5": (gpio.Pin 14 --output),
+}
 
-DI1 := gpio.Pin 36 --input
-DI2 := gpio.Pin 39 --input
-DI3 := gpio.Pin 35 --input
-DI4 := gpio.Pin 4 --input
-DI5 := gpio.Pin 16 --input
+inputs := {
+  "1": (gpio.Pin 36 --input),
+  "2": (gpio.Pin 39 --input),
+  "3": (gpio.Pin 35 --input),
+  "4": (gpio.Pin 4 --input),
+  "5": (gpio.Pin 16 --input),
+}
 
 I2C-SDA := gpio.Pin 33 
 I2C-SCL := gpio.Pin 22  
@@ -45,7 +48,6 @@ CLOLVL := gpio.Pin 21 --input
 device := I2C-BUS.device bmp280.I2C_ADDRESS_ALT
 driver := bmp280.Bmp280 device
 
-
 current-date:
   now := Time.now.local
   return "$now.year-$(%02d now.month)-$(%02d now.day)"
@@ -54,38 +56,65 @@ current-time:
   now := Time.now.local
   return "$(%02d now.h):$(%02d now.m):$(%02d now.s)"
 
+get-values pins/Map:
+  values := pins.copy
+  pins.do: 
+    values[it] = pins[it].get
+  return values
+
+update-time:
+  set-timezone "<-05>5"
+  now := Time.now
+  if now < (Time.parse "2022-01-10T00:00:00Z"):
+    result ::= ntp.synchronize --server="0.south-america.pool.ntp.org"
+    if result:
+      adjust-real-time-clock result.adjustment
+    else:
+      // log it
+      print "ntp: synchronization request failed"
+  
 generate-client-data:
     devices := I2C-BUS.scan
+    temperature := "0"
+    pressure := "0"
+    adc4 := "0"
+    adc6 := "0"
 
-    driver.on
-    return { 
+    i2c-read-exception := catch:
+      driver.on
+      temperature = "$driver.read-temperature C"
+      pressure = "$driver.read-pressure Pa"
+    if i2c-read-exception:
+      // log it
+    adc-read-exception := catch:
+      adc4 = ADC1-4.get.stringify 3
+      adc6 = ADC1-4.get.stringify 3
+    if adc-read-exception:
+      // log it
+
+    return json.stringify { 
+      "outputs": get-values outputs,
+      "inputs": get-values inputs,
       "i2c": devices.stringify, 
-      "adc4": ADC1-4.get.stringify,
-      "adc6": ADC1-6.get.stringify,
-      "DI5": DI5.get,
-      "temperature": "$driver.read-temperature C",
-      "pressure": "$driver.read-pressure Pa",
+      "adc4": adc4,
+      "adc6": adc6,
+      "temperature": temperature,
+      "pressure": pressure,
         // "humidity": "$driver.read-humidity %"
-    }.stringify
+    }
 
 main:
-    now := Time.now
-    if now < (Time.parse "2022-01-10T00:00:00Z"):
-      result ::= ntp.synchronize
-      if result:
-        adjust-real-time-clock result.adjustment
+    update-time
 
     network := net.open
     server-socket := network.tcp-listen 80
     clients := []
-
-    // set output 5 default    
-    DO5.set 0
+    
+    // set default output to low
+    outputs.do: outputs[it].set 0
 
     // invert pump
     PPCTGR.set 1
-
-
 
     rx := gpio.Pin 3
     port := uart.Port
@@ -132,19 +161,18 @@ main:
 
     task::
         // speaker
-        melody-channel := Melody DO1
-
         while true:
-          // melody_channel.play "e4e4-=e4-=c4e4-=g4-=-=g3"
-          melody-channel.play "c5"
+          outputs["1"].set 1
+          sleep --ms=12
+          outputs["1"].set 0
           sleep --ms=120000
 
     task::
         while true:
-          send-to-output DI2 DO2
-          send-to-output DI3 DO3
-          send-to-output DI4 DO4
-          send-to-output DI5 DO5
+          send-to-output inputs["2"] outputs["2"]
+          send-to-output inputs["3"] outputs["3"]
+          send-to-output inputs["4"] outputs["4"]
+          send-to-output inputs["5"] outputs["5"]
           sleep --ms=100
 
 send-to-output in/gpio.Pin out/gpio.Pin:
