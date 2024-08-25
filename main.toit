@@ -48,8 +48,6 @@ SPI-RESET := gpio.Pin 17
 ADC1-6 := adc.Adc (gpio.Pin 34)
 ADC1-4 := adc.Adc (gpio.Pin 32)
 
-
-
 device := I2C-BUS.device bmp280.I2C_ADDRESS_ALT
 driver := bmp280.Bmp280 device
 
@@ -130,14 +128,10 @@ main:
         --baud-rate=115200
 
     task::
-      // Require a feeding every 60 seconds.
       dog.start --s=60
-
       while true:
         dog.feed
         sleep --ms=30000
-      dog.stop
-      dog.close
 
     task::
       out := ""
