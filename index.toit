@@ -3,12 +3,12 @@ index data:
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chat Server</title>
+    <title>Remote Station Module</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             background-color: #F5F5F5;
-            color: #333;
+            color: #000;
             padding: 10px;
         }
         #messages {
@@ -30,14 +30,35 @@ index data:
         }
     </style>
 
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-    <h1>Remote station server</h1>
+    <h1>Remote station module</h1>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <div id="inputs"></div>
-        <div id="outputs"></div>
+        <div x-data="inputs">
+            <h3 class="pl-2 text-xs font-bold uppercase">Inputs</h3>
+            <div class="grid grid-cols-6 gap-2 w-full bg-gray-200 border border-black">
+                <template x-for="(value, input) in items" :key="input">
+                    <div class="flex flex-col items-center justify-center p-2">
+                        <span x-text="input" class="text-sm font-bold"></span>
+                        <span class="block w-6 h-6 rounded-full py-2" :class="!value ? 'bg-white':'bg-green-500'"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+        <div x-data="outputs">
+            <h3 class="pl-2 text-xs font-bold uppercase">Outputs</h3>
+            <div class="grid grid-cols-6 gap-2 w-full bg-gray-200 border border-black">
+                <template x-for="(value, input) in items" :key="input">
+                    <div class="flex flex-col items-center justify-center p-2">
+                        <span x-text="input" class="text-sm font-bold"></span>
+                        <span class="block w-6 h-6 rounded-full py-2" :class="value ? 'bg-white':'bg-green-500'"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
         <div id="messages"></div>
         <input id="input" type="text" placeholder="Type your message and hit Enter...">
       </div>
@@ -51,6 +72,30 @@ index data:
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
+    window.data = $data;
+
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('inputs', () => ({
+            init() {
+                document.addEventListener('data-update', () => this.items = window.data.inputs)
+            },
+            items: window.data.inputs,
+        }))
+        Alpine.data('outputs', () => ({
+            init() {
+                document.addEventListener('data-update', () => this.items = window.data.outputs)
+            },
+            items: window.data.outputs,
+        }))
+        Alpine.data('dropdown', () => ({
+            open: false,
+ 
+            toggle() {
+                this.open = ! this.open
+            }
+        }))
+    })
+
     var ws = new WebSocket('ws://' + window.location.host + '/ws');
     var messages = document.getElementById('messages');
     var input = document.getElementById('input');
@@ -90,28 +135,10 @@ index data:
     );
 
     ws.onmessage = function(event) {
-        console.log(event.data)
         var message = document.createElement('p');
-        data = JSON.parse(event.data);
-
-        var el = document.getElementById("inputs")
-        el.innerHTML = "";
-
-        for(var input in data.inputs) {
-          var div = document.createElement('div');
-          div.textContent = "DI" + input + ": " + data.inputs[input];
-          el.appendChild(div);
-        }
-
-        var el = document.getElementById("outputs")
-        el.innerHTML = "";
-
-        for(var input in data.outputs) {
-          var div = document.createElement('div');
-          div.textContent = "DO" + input + ": " + data.outputs[input];
-          el.appendChild(div);
-        }
-
+        window.data = JSON.parse(event.data)
+        document.dispatchEvent(new Event('data-update'))
+    
         // Create a new Date object from the timestamp
         var date = new Date(Date.now());
         // Format the time as HH:MM:SS
@@ -147,7 +174,7 @@ index data:
     };
 
     input.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter') {
+        if(event.key === 'Enter') {
             ws.send(input.value);
             input.value = '';
         }
