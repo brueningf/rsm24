@@ -52,6 +52,10 @@ ADC1-4 := adc.Adc (gpio.Pin 32)
 device := I2C-BUS.device bmp280.I2C_ADDRESS_ALT
 driver := bmp280.Bmp280 device
 
+// flow counter
+pulse-count-per-minute := 0
+flow-liters-per-minute := 0
+
 current-date:
   now := Time.now.local
   return "$now.year-$(%02d now.month)-$(%02d now.day)"
@@ -109,6 +113,8 @@ generate-client-data:
       "pressure": pressure,
       "wlmin": wl-min,
       "wlmax": wl-max,
+      "flowl": flow-liters-per-minute,
+      "flow": pulse-count-per-minute,
         // "humidity": "$driver.read-humidity %"
     }
 
@@ -144,6 +150,8 @@ main:
       water-level-constants.write --at=4 "2.80".to-byte-array
 
     water-level-constants.close
+
+
 
     task::
       dog.start --s=60
@@ -186,7 +194,16 @@ main:
             clients.do: 
               it.send data
           sleep --ms=5000
-    
+    task --background::
+        start-time := Time.now + (Duration --m=1)
+        while true:
+          if Time.now >= start-time:
+              flow-liters-per-minute = pulse-count-per-minute / 380
+              pulse-count-per-minute = 0
+              start-time = Time.now + (Duration --m=1)
+          inputs["1"].wait-for 1
+          pulse-count-per-minute += 1
+          sleep --ms=10
     task::
         // pump and switch
         while true:

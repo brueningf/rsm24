@@ -41,12 +41,12 @@ index data:
             </div>
         </div>
         <div x-data="adcs">
-            <h3 class="pl-2 text-xs font-bold uppercase">ADCs</h3>
+            <h3 class="pl-2 text-xs font-bold uppercase">ADCs + Flow Di1</h3>
             <div class="grid grid-cols-4 gap-2 w-full bg-gray-200 border border-black">
                 <template x-for="(value, input) in items" :key="input">
                     <div class="flex flex-col items-center justify-center p-2">
                         <span x-text="input" class="text-sm font-bold uppercase"></span>
-                        <span x-text="value + 'V'" class="block p-2 border border-black"></span>
+                        <span x-text="value" class="block p-2 border border-black"></span>
                     </div>
                 </template>
             </div>
@@ -90,13 +90,17 @@ index data:
         Alpine.data('adcs', () => ({
             init() {
                 document.addEventListener('data-update', () => this.items = {
-                    adc4: window.data.adc4,
-                    adc6: window.data.adc6
+                    adc4: window.data.adc4 + "V",
+                    adc6: window.data.adc6 + "V",
+                    flowl: window.data.flowl,
+                    flow: window.data.flow,
                 })
             },
             items: {
-                adc4: window.data.adc4,
-                adc6: window.data.adc6
+                adc4: window.data.adc4 + "V",
+                adc6: window.data.adc6 + "V",
+                flowl: window.data.flowl,
+                flow: window.data.flow,
             },
         }))
         Alpine.data('settings', () => ({
