@@ -5,6 +5,7 @@ import uart
 import ntp
 import esp32 show adjust-real-time-clock
 import encoding.json
+import system.storage
 
 import watchdog show WatchdogServiceClient
 
@@ -81,6 +82,11 @@ generate-client-data:
     adc4 := "0"
     adc6 := "0"
 
+    water-level-constants := storage.Region.open --flash "water-level" --capacity=8
+    wl-min := (water-level-constants.read --from=0 --to=3).to-string-non-throwing
+    wl-max := (water-level-constants.read --from=4 --to=8).to-string-non-throwing
+    water-level-constants.close
+
     i2c-read-exception := catch:
       driver.on
       temperature = driver.read-temperature.stringify 2
@@ -101,6 +107,8 @@ generate-client-data:
       "adc6": adc6,
       "temperature": temperature,
       "pressure": pressure,
+      "wlmin": wl-min,
+      "wlmax": wl-max,
         // "humidity": "$driver.read-humidity %"
     }
 
@@ -120,12 +128,22 @@ main:
 
     // invert pump
     PPCTGR.set 1
+    
+    // open constants region
+    // 4 byte variables min, max
+    water-level-constants := storage.Region.open --flash "water-level" --capacity=8
 
-    rx := gpio.Pin 3
-    port := uart.Port
-        --rx=rx
-        --tx=null
-        --baud-rate=115200
+    water-level-min := catch:
+      wl-min := (water-level-constants.read --from=0 --to=3).to-string
+    if water-level-min:
+      water-level-constants.write --at=0 "1.00".to-byte-array
+
+    water-level-max := catch:
+      wl-max := (water-level-constants.read --from=4 --to=8).to-string
+    if water-level-max:
+      water-level-constants.write --at=4 "2.80".to-byte-array
+
+    water-level-constants.close
 
     task::
       dog.start --s=60
@@ -133,20 +151,25 @@ main:
         dog.feed
         sleep --ms=30000
 
-    task::
-      out := ""
-      while true:
-        while in/ByteArray := port.in.read:
-            out += in.to-string
-        print "log: $out"
-        sleep --ms=500
-
-    task::
+    task --background::
         server := http.Server --max-tasks=5
         server.listen server-socket:: | request/http.RequestIncoming response-writer/http.ResponseWriter |
           if request.path == "/" or request.path == "/index.html":
             response-writer.headers.add "Content-Type" "text/html"
             response-writer.out.write (index generate-client-data)
+          else if request.path == "/constants/update" and request.method == http.POST:
+            constants := storage.Region.open --flash "water-level" --capacity=8
+            decoded := json.decode-stream request.body
+            constants.erase
+            decoded.get "wlmin"
+              --if-present=: | value |
+                constants.write --at=0 value.to-byte-array
+                print "Setting constant wlmin: $value"
+            decoded.get "wlmax"
+              --if-present=: | value |
+                constants.write --at=4 value.to-byte-array
+            constants.close
+            response-writer.write-headers 201
           else if request.path == "/ws":
             web-socket := server.web-socket request response-writer
             clients.add web-socket
@@ -189,7 +212,7 @@ main:
           send-to-output inputs["3"] outputs["3"]
           send-to-output inputs["4"] outputs["4"]
           send-to-output inputs["5"] outputs["5"]
-          sleep --ms=100
+          sleep --ms=200
 
 send-to-output in/gpio.Pin out/Map:
     if in.get == 0:
@@ -198,6 +221,3 @@ send-to-output in/gpio.Pin out/Map:
     else:
       out["pin"].set 0
       out["state"] = 0
-
-    
-

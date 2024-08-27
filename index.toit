@@ -4,39 +4,20 @@ index data:
 <html>
 <head>
     <title>Remote Station Module</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #F5F5F5;
-            color: #000;
-            padding: 10px;
-        }
-        #messages {
-            height: 70vh;
-            border: 1px solid #ddd;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        #input {
-            width: 100%;
-            height: 30px;
-            padding: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-    </style>
 
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-    <h1>Remote station module</h1>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <h1 class="font-bold text-center uppercase">Remote station module</h1>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 m-4">
       <div>
+        <h3>Water Level<h3/>
+        <canvas id="water-level"></canvas>
+        <h3>Temperature<h3/>
+        <canvas id="temperature"></canvas>
+      </div>
+      <div class="grid grid-cols-1 gap-4">
         <div x-data="inputs">
             <h3 class="pl-2 text-xs font-bold uppercase">Inputs</h3>
             <div class="grid grid-cols-6 gap-2 w-full bg-gray-200 border border-black">
@@ -59,15 +40,34 @@ index data:
                 </template>
             </div>
         </div>
-        <div id="messages"></div>
-        <input id="input" type="text" placeholder="Type your message and hit Enter...">
+        <div x-data="adcs">
+            <h3 class="pl-2 text-xs font-bold uppercase">ADCs</h3>
+            <div class="grid grid-cols-4 gap-2 w-full bg-gray-200 border border-black">
+                <template x-for="(value, input) in items" :key="input">
+                    <div class="flex flex-col items-center justify-center p-2">
+                        <span x-text="input" class="text-sm font-bold uppercase"></span>
+                        <span x-text="value + 'V'" class="block p-2 border border-black"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+        <div x-data="settings">
+            <h3 class="pl-2 text-xs font-bold uppercase">Settings</h3>
+            <form x-on:submit.prevent="submit" class="w-full bg-gray-200 border border-black">
+                <div class="grid grid-cols-4 gap-2">
+                    <template x-for="(value, input) in items" :key="input">
+                        <div class="flex flex-col items-center justify-center p-2">
+                            <span x-text="input" class="text-sm font-bold uppercase"></span>
+                            <input class="w-full" type="text" :value="value" :name="input" required> 
+                        </div>
+                    </template>
+                </div>
+                <button class="p-1 border border-black m-2" type="submit">Save</button>
+            </form>
+        </div>
+        <div id="messages" class="w-full mt-2 overflow-scroll bg-gray-200 border border-black p-1 h-[50vh]"></div>
       </div>
-      <div>
-        <h3>ADC4<h3/>
-        <canvas id="adc4"></canvas>
-        <h3>Temperature<h3/>
-        <canvas id="temperature"></canvas>
-      </div>
+
     </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -87,11 +87,44 @@ index data:
             },
             items: window.data.outputs,
         }))
-        Alpine.data('dropdown', () => ({
-            open: false,
- 
-            toggle() {
-                this.open = ! this.open
+        Alpine.data('adcs', () => ({
+            init() {
+                document.addEventListener('data-update', () => this.items = {
+                    adc4: window.data.adc4,
+                    adc6: window.data.adc6
+                })
+            },
+            items: {
+                adc4: window.data.adc4,
+                adc6: window.data.adc6
+            },
+        }))
+        Alpine.data('settings', () => ({
+            init() {
+                document.addEventListener('data-update', () => {
+                    this.items.wlmin = window.data.wlmin
+                    this.items.wlmax = window.data.wlmax
+                })
+            },
+            items: {
+                wlmin: window.data.wlmin,
+                wlmax: window.data.wlmax,
+            },
+            submit(e) {
+                const formData = new FormData(e.target);
+                const jsonObject = {};
+    
+                formData.forEach((value, key) => {
+                    jsonObject[key] = value;
+                });
+    
+                fetch('/constants/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(jsonObject),
+                })
             }
         }))
     })
@@ -100,7 +133,6 @@ index data:
     var messages = document.getElementById('messages');
     var input = document.getElementById('input');
     var temperature = [];
-    var adc4 = [];
 
     var tempChart = new Chart(
       document.getElementById('temperature'),
@@ -114,22 +146,35 @@ index data:
               data: temperature.map(row => row.value)
             }
           ]
+        },
+        options: { 
+            scales: { 
+                y: { min: -30, max: 100 },
+            }
         }
       }
     );
 
-    var adc4Chart = new Chart(
-      document.getElementById('adc4'),
+    var waterLevelChart = new Chart(
+      document.getElementById('water-level'),
       {
-        type: 'line',
+        type: 'bar',
         data: {
-          labels: adc4.map(row => row.time),
+          labels: ['Tank A'],
           datasets: [
             {
-              label: 'Voltage',
-              data: adc4.map(row => row.value)
+              label: 'Water level',
+              data: ['1.5']
             }
           ]
+        },
+        options: {
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                }
+            }
         }
       }
     );
@@ -139,47 +184,33 @@ index data:
         window.data = JSON.parse(event.data)
         document.dispatchEvent(new Event('data-update'))
     
-        // Create a new Date object from the timestamp
         var date = new Date(Date.now());
-        // Format the time as HH:MM:SS
         var currentTime = date.toLocaleString('en-US', { timeZone: 'America/Lima' }).substr(11, 8);
         
         if(data.temperature) {
-            temperature.push({
-              time: currentTime,
-              value: data.temperature 
-            }) 
+            if(temperature.length == 0 || data.temperature !== temperature[temperature.length -1].value) {
+                temperature.push({
+                    time: currentTime,
+                    value: data.temperature 
+                }) 
 
-            tempChart.data.labels = temperature.map(row => row.time)
-            tempChart.data.datasets[0].data = temperature.map(row => row.value)
-            tempChart.update()
+                tempChart.data.labels = temperature.map(row => row.time)
+                tempChart.data.datasets[0].data = temperature.map(row => row.value)
+                tempChart.update()
+            }
         }
 
         if(data.adc4) {
-            if(adc4.length > 20) {
-              adc4 = []; 
-            }
-            adc4.push({
-              time: currentTime,
-              value: data.adc4 
-            }) 
-            adc4Chart.data.labels = adc4.map(row => row.time)
-            adc4Chart.data.datasets[0].data = adc4.map(row => row.value)
-            adc4Chart.update()
+            val = ((data.adc4 - data.wlmin) * 100) / (data.wlmax - data.wlmin)
+
+            waterLevelChart.data.datasets[0].data = [val]
+            waterLevelChart.update()
         }
         
         message.textContent = event.data;
         messages.appendChild(message);
         messages.scrollTop = messages.scrollHeight;
     };
-
-    input.addEventListener('keydown', function(event) {
-        if(event.key === 'Enter') {
-            ws.send(input.value);
-            input.value = '';
-        }
-    });
-
 </script>
 </body>
 </html>
