@@ -6,6 +6,7 @@ import ntp
 import esp32 show adjust-real-time-clock
 import encoding.json
 import system.storage
+import pulse_counter
 
 import watchdog show WatchdogServiceClient
 
@@ -194,16 +195,14 @@ main:
             clients.do: 
               it.send data
           sleep --ms=5000
+
     task --background::
-        start-time := Time.now + (Duration --m=1)
-        while true:
-          if Time.now >= start-time:
-              flow-liters-per-minute = pulse-count-per-minute / 380
-              pulse-count-per-minute = 0
-              start-time = Time.now + (Duration --m=1)
-          inputs["1"].wait-for 1
-          pulse-count-per-minute += 1
-          sleep --ms=10
+      unit := pulse_counter.Unit
+      channel := unit.add_channel inputs["2"]
+      while true:
+        pulse-count-per-minute = unit.value
+        flow-liters-per-minute = pulse-count-per-minute / 380
+        sleep --ms=500
     task::
         // pump and switch
         while true:
@@ -221,7 +220,7 @@ main:
           outputs["1"]["pin"].set 1
           sleep --ms=12
           outputs["1"]["pin"].set 0
-          sleep --ms=120000
+          sleep --ms=30000
 
     task::
         while true:
