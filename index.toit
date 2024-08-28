@@ -58,7 +58,7 @@ index data:
                     <template x-for="(value, input) in items" :key="input">
                         <div class="flex flex-col items-center justify-center p-2">
                             <span x-text="input" class="text-sm font-bold uppercase"></span>
-                            <input class="w-full" type="text" :value="value" :name="input" required> 
+                            <input class="w-full" type="text" :value="value" :name="input" minlength="4" maxlength="4" required> 
                         </div>
                     </template>
                 </div>
@@ -108,11 +108,13 @@ index data:
                 document.addEventListener('data-update', () => {
                     this.items.wlmin = window.data.wlmin
                     this.items.wlmax = window.data.wlmax
+                    this.items.flowppl = window.data.flowppl
                 })
             },
             items: {
                 wlmin: window.data.wlmin,
                 wlmax: window.data.wlmax,
+                flowppl: window.data.flowppl,
             },
             submit(e) {
                 const formData = new FormData(e.target);
@@ -205,6 +207,7 @@ index data:
         }
 
         if(data.adc4) {
+            // convert to percentage
             val = ((data.adc4 - data.wlmin) * 100) / (data.wlmax - data.wlmin)
 
             waterLevelChart.data.datasets[0].data = [val]

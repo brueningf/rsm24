@@ -79,6 +79,14 @@ update-time:
     else:
       // log it
       print "ntp: synchronization request failed"
+
+send-to-output in/gpio.Pin out/Map:
+    if in.get == 0:
+      out["pin"].set 1
+      out["state"] = 1
+    else:
+      out["pin"].set 0
+      out["state"] = 0
   
 generate-client-data:
     devices := I2C-BUS.scan
@@ -88,9 +96,13 @@ generate-client-data:
     adc6 := "0"
 
     water-level-constants := storage.Region.open --flash "water-level" --capacity=8
-    wl-min := (water-level-constants.read --from=0 --to=3).to-string-non-throwing
+    wl-min := (water-level-constants.read --from=0 --to=4).to-string-non-throwing
     wl-max := (water-level-constants.read --from=4 --to=8).to-string-non-throwing
     water-level-constants.close
+
+    region := storage.Region.open --flash "flowppl" --capacity=4
+    flowppl := (region.read --from=0 --to=4).to-string-non-throwing
+    region.close
 
     i2c-read-exception := catch:
       driver.on
@@ -114,6 +126,7 @@ generate-client-data:
       "pressure": pressure,
       "wlmin": wl-min,
       "wlmax": wl-max,
+      "flowppl": flowppl,
       "flowl": flow-liters-per-minute,
       "flow": pulse-count-per-minute,
         // "humidity": "$driver.read-humidity %"
@@ -138,10 +151,11 @@ main:
     
     // open constants region
     // 4 byte variables min, max
+    // 4 character in ascii range
     water-level-constants := storage.Region.open --flash "water-level" --capacity=8
 
     water-level-min := catch:
-      wl-min := (water-level-constants.read --from=0 --to=3).to-string
+      wl-min := (water-level-constants.read --from=0 --to=4).to-string
     if water-level-min:
       water-level-constants.write --at=0 "1.00".to-byte-array
 
@@ -152,8 +166,13 @@ main:
 
     water-level-constants.close
 
-
-
+    region := storage.Region.open --flash "flowppl" --capacity=4
+    region-exception := catch:
+      flowppl := (region.read --from=0 --to=4).to-string
+    if region-exception:
+      region.write --at=0 "0380".to-byte-array
+    flowppl := int.parse (region.read --from=0 --to=4)
+    region.close
 
     task::
       dog.start --s=60
@@ -179,6 +198,12 @@ main:
               --if-present=: | value |
                 constants.write --at=4 value.to-byte-array
             constants.close
+            decoded.get "flowppl"
+              --if-present=: | value |
+                region = storage.Region.open --flash "flowppl" --capacity=4
+                region.erase
+                region.write --at=0 value.to-byte-array
+                region.close
             response-writer.write-headers 201
           else if request.path == "/ws":
             web-socket := server.web-socket request response-writer
@@ -196,13 +221,13 @@ main:
             clients.do: 
               it.send data
           sleep --ms=5000
-
+    
     task::
-      unit := pulse_counter.Unit
-      channel := unit.add_channel inputs["2"]
+      unit := pulse_counter.Unit --low=0 --glitch-filter-ns=1000
+      channel := unit.add_channel inputs["2"] --on-positive-edge=pulse_counter.Unit.INCREMENT
       while true:
         pulse-count-per-minute = unit.value
-        flow-liters-per-minute = pulse-count-per-minute / 380
+        flow-liters-per-minute = pulse-count-per-minute / flowppl
         sleep --ms=500
 
     task::
@@ -231,11 +256,3 @@ main:
           send-to-output inputs["4"] outputs["4"]
           send-to-output inputs["5"] outputs["5"]
           sleep --ms=200
-
-send-to-output in/gpio.Pin out/Map:
-    if in.get == 0:
-      out["pin"].set 1
-      out["state"] = 1
-    else:
-      out["pin"].set 0
-      out["state"] = 0
