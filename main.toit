@@ -53,10 +53,6 @@ ADC1-4 := adc.Adc (gpio.Pin 32)
 device := I2C-BUS.device bmp280.I2C_ADDRESS_ALT
 driver := bmp280.Bmp280 device
 
-// flow counter
-pulse-count-per-minute := 0
-flow-liters-per-minute := 0
-
 current-date:
   now := Time.now.local
   return "$now.year-$(%02d now.month)-$(%02d now.day)"
@@ -151,7 +147,10 @@ main:
       water-level-constants.write --at=4 "2.80".to-byte-array
 
     water-level-constants.close
-
+    
+    // flow counter
+    pulse-count-per-minute := 0
+    flow-liters-per-minute := 0
 
 
     task::
@@ -196,13 +195,14 @@ main:
               it.send data
           sleep --ms=5000
 
-    task --background::
+    task::
       unit := pulse_counter.Unit
       channel := unit.add_channel inputs["2"]
       while true:
         pulse-count-per-minute = unit.value
         flow-liters-per-minute = pulse-count-per-minute / 380
         sleep --ms=500
+
     task::
         // pump and switch
         while true:
