@@ -94,6 +94,12 @@ index data:
                     adc6: window.data.adc6 + "V",
                     flowl: window.data.flowl,
                     flow: window.data.flow,
+                    freq: window.data.freq,
+                    temperature: window.data.temperature,
+                    pressure: window.data.pressure,
+                    temperature_aht20: window.data.temperature_aht20,
+                    humidity: window.data.humidity,
+                    dewpoint: window.data.dewpoint,
                 })
             },
             items: {
@@ -101,6 +107,12 @@ index data:
                 adc6: window.data.adc6 + "V",
                 flowl: window.data.flowl,
                 flow: window.data.flow,
+                freq: window.data.freq,
+                temperature: window.data.temperature,
+                pressure: window.data.pressure,
+                temperature_aht20: window.data.temperature_aht20,
+                humidity: window.data.humidity,
+                dewpoint: window.data.dewpoint,
             },
         }))
         Alpine.data('settings', () => ({
@@ -215,6 +227,9 @@ index data:
         }
         
         message.textContent = event.data;
+        if(messages.childElementCount > 5) {
+            messages.innerHTML = "";
+        }
         messages.appendChild(message);
         messages.scrollTop = messages.scrollHeight;
     };

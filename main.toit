@@ -8,13 +8,14 @@ import encoding.json
 import system.storage
 import pulse_counter
 
-import watchdog show WatchdogServiceClient
+// import watchdog show WatchdogServiceClient
 
 import http
 import net
 import .index
 
 import bmp280
+import aht20
 
 PPCTGR := gpio.Pin 2 --output
 CLOLVL := gpio.Pin 21 --input
@@ -53,9 +54,13 @@ ADC1-4 := adc.Adc (gpio.Pin 32)
 device := I2C-BUS.device bmp280.I2C_ADDRESS_ALT
 driver := bmp280.Bmp280 device
 
+aht20-device := I2C-BUS.device aht20.I2C_ADDRESS
+aht20-driver := aht20.Driver aht20-device
+
 // flow counter
-pulse-count-per-minute := 0
+flow-counter := 0
 flow-liters-per-minute := 0
+freq := 0
 
 current-date:
   now := Time.now.local
@@ -92,27 +97,40 @@ generate-client-data:
     devices := I2C-BUS.scan
     temperature := "0"
     pressure := "0"
+    temperature-aht20 := "0"
+    humidity := "0"
+    dew-point := "0"
     adc4 := "0"
     adc6 := "0"
+    wl-min := "0"
+    wl-max := "0"
+    flowppl := "0"
 
-    water-level-constants := storage.Region.open --flash "water-level" --capacity=8
-    wl-min := (water-level-constants.read --from=0 --to=4).to-string-non-throwing
-    wl-max := (water-level-constants.read --from=4 --to=8).to-string-non-throwing
-    water-level-constants.close
+    read-flash-exception := catch:
+      water-level-constants := storage.Region.open --flash "water-level" --capacity=8
+      wl-min = (water-level-constants.read --from=0 --to=4).to-string-non-throwing
+      wl-max = (water-level-constants.read --from=4 --to=8).to-string-non-throwing
+      water-level-constants.close
 
-    region := storage.Region.open --flash "flowppl" --capacity=4
-    flowppl := (region.read --from=0 --to=4).to-string-non-throwing
-    region.close
+      region := storage.Region.open --flash "flowppl" --capacity=4
+      flowppl = (region.read --from=0 --to=4).to-string-non-throwing
+      region.close
+
+    if read-flash-exception:
+      // log it
 
     i2c-read-exception := catch:
       driver.on
-      temperature = driver.read-temperature.stringify 2
-      pressure = "$driver.read-pressure"
+      temperature = driver.read-temperature.stringify 1
+      pressure = driver.read-pressure.stringify 1
+      temperature-aht20 = aht20-driver.read-temperature.stringify 1
+      humidity = aht20-driver.read-humidity.stringify 2
+      dew-point = aht20-driver.read-dew-point.stringify 2
     if i2c-read-exception:
       // log it
     adc-read-exception := catch:
       adc4 = ADC1-4.get.stringify 2
-      adc6 = ADC1-6.get.stringify 3
+      adc6 = ADC1-6.get.stringify 2
     if adc-read-exception:
       // log it
 
@@ -122,22 +140,26 @@ generate-client-data:
       "i2c": devices.stringify, 
       "adc4": adc4,
       "adc6": adc6,
+      "temperature_aht20": temperature-aht20,
+      "humidity": humidity,
+      "dewpoint": dew-point,
       "temperature": temperature,
       "pressure": pressure,
       "wlmin": wl-min,
       "wlmax": wl-max,
       "flowppl": flowppl,
       "flowl": flow-liters-per-minute,
-      "flow": pulse-count-per-minute,
+      "flow": flow-counter,
+      "freq": freq
         // "humidity": "$driver.read-humidity %"
     }
 
 main:
     update-time
-    client := WatchdogServiceClient
-    client.open  // Now connects to the shared watchdog provider.
+    // client := WatchdogServiceClient
+    // client.open  // Now connects to the shared watchdog provider.
 
-    dog := client.create "doggy"
+    // dog := client.create "doggy"
 
     network := net.open
     server-socket := network.tcp-listen 80
@@ -174,18 +196,20 @@ main:
     flowppl := int.parse (region.read --from=0 --to=4)
     region.close
 
-    task::
-      dog.start --s=60
-      while true:
-        dog.feed
-        sleep --ms=30000
+    info := generate-client-data
 
-    task --background::
-        server := http.Server --max-tasks=5
+    // task::
+    //   dog.start --s=60
+    //   while true:
+    //     dog.feed
+    //     sleep --ms=30000
+
+    task --background::  
+        server := http.Server --max-tasks=2
         server.listen server-socket:: | request/http.RequestIncoming response-writer/http.ResponseWriter |
           if request.path == "/" or request.path == "/index.html":
             response-writer.headers.add "Content-Type" "text/html"
-            response-writer.out.write (index generate-client-data)
+            response-writer.out.write (index info)
           else if request.path == "/constants/update" and request.method == http.POST:
             constants := storage.Region.open --flash "water-level" --capacity=8
             decoded := json.decode-stream request.body
@@ -213,46 +237,52 @@ main:
             clients.remove web-socket
           else:
             response-writer.write-headers http.STATUS-NOT-FOUND --message="Not Found"
+          response-writer.close
+    
+    task::
+      while true:
+        info = generate-client-data
+        sleep --ms=10000
 
     task::
-        while true:
-          data := generate-client-data
-          socket-exception := catch:
-            clients.do: 
-              it.send data
-          sleep --ms=5000
-    
+      while true:
+        sleep --ms=5000
+        socket-exception := catch:
+          clients.do: 
+            it.send info
+        if socket-exception:
+          print "Error sending info to client"
+
     task::
       unit := pulse_counter.Unit --low=0 --glitch-filter-ns=1000
       channel := unit.add_channel inputs["2"] --on-positive-edge=pulse_counter.Unit.INCREMENT
       while true:
-        pulse-count-per-minute = unit.value
-        flow-liters-per-minute = pulse-count-per-minute / flowppl
-        sleep --ms=500
+        freq = flow-counter - unit.value
+        flow-counter = unit.value
+        flow-liters-per-minute = flow-counter / flowppl
+
+        sleep --ms=1000
 
     task::
-        // pump and switch
+        // speaker
         while true:
+          outputs["1"]["pin"].set 1
+          sleep --ms=15
+          outputs["1"]["pin"].set 0
+          sleep --ms=1000
+
+    task::
+        while true:
+          // pump and switch
           if CLOLVL.get == 1:
             PPCTGR.set 0
             outputs["PPCTGR"]["state"] = 0
           else:
             PPCTGR.set 1
             outputs["PPCTGR"]["state"] = 1
-          sleep --ms=300
 
-    task::
-        // speaker
-        while true:
-          outputs["1"]["pin"].set 1
-          sleep --ms=12
-          outputs["1"]["pin"].set 0
-          sleep --ms=30000
-
-    task::
-        while true:
           send-to-output inputs["2"] outputs["2"]
           send-to-output inputs["3"] outputs["3"]
           send-to-output inputs["4"] outputs["4"]
           send-to-output inputs["5"] outputs["5"]
-          sleep --ms=200
+          sleep --ms=100
