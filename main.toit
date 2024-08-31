@@ -257,7 +257,7 @@ main:
       unit := pulse_counter.Unit --low=0 --glitch-filter-ns=1000
       channel := unit.add_channel inputs["2"] --on-positive-edge=pulse_counter.Unit.INCREMENT
       while true:
-        freq = flow-counter - unit.value
+        freq = unit.value - flow-counter
         flow-counter = unit.value
         flow-liters-per-minute = flow-counter / flowppl
 
