@@ -257,11 +257,11 @@ main:
       unit := pulse_counter.Unit --low=0 --glitch-filter-ns=1000
       channel := unit.add_channel inputs["2"] --on-positive-edge=pulse_counter.Unit.INCREMENT
       while true:
-        freq = unit.value - flow-counter
+        freq = (unit.value - flow-counter) * 10
         flow-counter = unit.value
         flow-liters-per-minute = flow-counter / flowppl
 
-        sleep --ms=1000
+        sleep --ms=100
 
     task::
         // speaker
@@ -269,7 +269,7 @@ main:
           outputs["1"]["pin"].set 1
           sleep --ms=15
           outputs["1"]["pin"].set 0
-          sleep --ms=1000
+          sleep --ms=5000
 
     task::
         while true:
