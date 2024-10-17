@@ -1,0 +1,15 @@
+sdk: ^2.0.0-alpha.145
+prefixes:
+  bmp280: bmp280-driver
+  http: pkg-http
+packages:
+  bmp280-driver:
+    url: github.com/harshkc03/bmp280-driver
+    name: bmp280
+    version: 1.0.0
+    hash: 17824b46f0fd5b9355e616de4bb5603dd6e9f6eb
+  pkg-http:
+    url: github.com/toitlang/pkg-http
+    name: http
+    version: 2.8.0
+    hash: 81754d64fe466cd00cc494ec515da8749bf04975
