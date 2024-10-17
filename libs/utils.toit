@@ -1,10 +1,12 @@
 import gpio
 import gpio.adc
 
-read-adc pin/int -> string:
-  adc := adc.Adc (gpio.Pin pin)
+read-adc number/int -> string:
+  pin := gpio.Pin number
+  adc := adc.Adc pin
   value := adc.get.stringify 2
   adc.close
+  pin.close
   return value
 
 read-gpio number/int -> int:
