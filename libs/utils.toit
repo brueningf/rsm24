@@ -15,3 +15,7 @@ read-gpio number/int -> int:
   pin.close
   return value
 
+write-gpio number/int value/int:
+  pin := gpio.Pin number --output
+  pin.set value
+  pin.close

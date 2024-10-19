@@ -1,80 +1,84 @@
 import system
 import http
 import net
+import net.tcp
 import encoding.json
 import ..libs.broadcast
+import .index
 
-view name/string data:
-  return """
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <title>Central Station</title>
-    <link rel="icon" href="data:;base64,=">
-  </head>
-  <body>
-    <h1>Central Station</h1>
-    <p>$data</p>
-    <h1>Chat Server</h1>
-    <div id="messages"></div>
-    <input id="input" type="text" placeholder="Type your message and hit Enter...">
-    <script>
-        var ws = new WebSocket('ws://' + window.location.host + '/ws');
-        var messages = document.getElementById('messages');
-        var input = document.getElementById('input');
+state ::= {
+  "DO1": 0,
+  "DO2": 0,
+  "DO3": 0,
+  "DO4": 0,
+}
 
-        ws.onmessage = function(event) {
-            var message = document.createElement('p');
-            message.textContent = event.data;
-            messages.appendChild(message);
-            messages.scrollTop = messages.scrollHeight;
-        };
-
-        input.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                ws.send(input.value);
-                input.value = '';
-            }
-        });
-    </script>
-  </body>
-  </html>
-  """
 advertise-central-station:
   broadcast := Server
   network := net.open
   my-ip := network.address
   network.close
-  broadcast.periodic-broadcast (Duration --s=30):
+  broadcast.periodic-broadcast (Duration --s=10):
     print "Broadcasting central station at $my-ip"
     msg := {"type": "central-station", "ip": "$my-ip"}
     json.stringify msg
 
-main:
-  task:: advertise-central-station
+send-updates-to-clients clients:
+  clients.do:
+    it.send (json.stringify state)
 
+class Module:
+  socket/http.WebSocket
+  state/Map
+
+  constructor .socket/http.WebSocket .state/Map:
+
+  send data/string:
+    listener-exception := catch:
+      socket.send data
+    if listener-exception:
+      print "Exception: $listener-exception"
+
+main:
   clients := []
+  modules := []
+
+  task:: advertise-central-station
+  task:: 
+    while true:
+      send-updates-to-clients clients
+      sleep --ms=1000
+
   network := net.open
   server := (http.Server --max-tasks=4)
   server.listen network 80:: | request/http.RequestIncoming writer/http.ResponseWriter |
     if request.path == "/":
       writer.headers.set "Content-Type" "text/html"
       writer.headers.set "Connection" "close"
-      writer.out.write (view "index" (json.stringify "data"))
+      writer.out.write (render-view "index" (json.stringify "data"))
     else if request.path == "/ws":
       web-socket := server.web-socket request writer
-      clients.add web-socket
-      print clients
+      first := web-socket.receive
+      first = json.parse first
+      if first["type"] == "module":
+        modules.add (Module web-socket first["state"])
+        print "Adding module: " + web-socket.socket_.peer-address.stringify
+        print modules
+      else if first["type"] == "client":
+        clients.add web-socket
+        print "Adding client: " + web-socket.socket_.peer-address.stringify
       while data := web-socket.receive:
-        print "Received: $data"
-        print "Sending to clients: $clients"
-        clients.do: 
-          tcp-exception := catch:
-            it.send data
-          if tcp-exception:
-            print "Exception: $tcp-exception"
-            clients.remove it
-      clients.remove web-socket
+        decoded := json.parse data
+        if decoded["type"] == "module":
+          print "Received data from module: " + web-socket.socket_.peer-address.stringify
+        else if decoded["type"] == "client":
+          print "Received data from client: " + web-socket.socket_.peer-address.stringify
+        else:
+          print "Received unknown data: " + data
+      if modules.contains web-socket:
+        modules.remove web-socket
+      else if clients.contains web-socket:
+        clients.remove web-socket
     else:
       writer.headers.set "Content-Type" "text/plain"
       writer.out.write "Not found 404"
