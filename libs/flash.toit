@@ -1,20 +1,39 @@
 import system.storage
+import encoding.tison
 
 class Flash:
-    get name/string default/string -> string:
-        region := storage.Region.open --flash name --capacity=default.byte-size
-        value := default
+  static get name/string default/any=null -> any:
+    region := storage.Region.open --flash name
 
-        region-exception := catch:
-            value = (region.read --from=0 --to=default.byte-size).to-string
-        if region-exception:
-            region.write --at=0 default.to-byte-array
-        region.close
-        return value
+    print "Flash retrieval: $name"
 
-    store name/string value -> none:
-        region := storage.Region.open --flash name --capacity=value.byte-size
-        region.erase
-        region.write --at=0 value.to-byte-array
-        region.close
+    data := region.read --from=0 --to=region.size
+    index-of-null := data.index-of 255
+    object := data.byte-slice 0 index-of-null
+    
+    decoding-tison-exception := catch:
+      decoded := tison.decode object
+      return decoded
+    if decoding-tison-exception:
+      print "Flash decoding exception: $decoding-tison-exception"
+
+    if default == null:
+      region.close
+      return null
+
+    try:
+      encoded := tison.encode default
+      region.erase --from=0 --to=region.size
+      region.write --at=0 encoded
+    finally:
+      region.close
+
+    return default
+
+  static store name/string value/any -> none:
+    value = tison.encode value
+    region := storage.Region.open --flash name
+    region.erase --from=0 --to=region.size
+    region.write --at=0 value
+    region.close
 

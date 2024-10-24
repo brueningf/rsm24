@@ -46,6 +46,7 @@ state := {
 
 main:
   central-station-ip := search-central-station
+  update-time
   print "Central station found at $central-station-ip"
 
   sleep --ms=5000
@@ -66,7 +67,12 @@ main:
   client := http.Client network
 
   while true:
-    web-socket := client.web-socket --host=central-station-ip --path="/ws"
+    web-socket := null
+    connection-exception := catch:
+      web-socket = client.web-socket --host=central-station-ip --path="/ws"
+    if connection-exception:
+      sleep --ms=5000
+      continue
     task --background::
       catch:
         while received := web-socket.receive:
@@ -89,7 +95,6 @@ main:
         print "Reconnecting"
         break
       sleep --ms=2000
-    sleep --ms=5000
    
 read-counter number/int:
   pin := gpio.Pin number
