@@ -164,8 +164,8 @@ main:
           print "Received unknown data: " + data
 
       // Connection closed
-      if state["modules"].contains web-socket:
-        state["modules"].remove web-socket
+      if state["modules"].contains module:
+        state["modules"].remove module
       else if clients.contains web-socket:
         clients.remove web-socket
     else:
