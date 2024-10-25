@@ -7,6 +7,7 @@ import encoding.json
 import pulse-counter
 import ..libs.broadcast
 import ..libs.utils
+
 config := {
   "ADC1_4": 32,
   "ADC1_6": 34,
@@ -45,8 +46,8 @@ state := {
 }
 
 main:
-  central-station-ip := search-central-station
   update-time
+  central-station-ip := search-central-station
   print "Central station found at $central-station-ip"
 
   sleep --ms=5000

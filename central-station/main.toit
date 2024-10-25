@@ -8,6 +8,8 @@ import .web.index
 
 import ..libs.flash
 import ..libs.broadcast
+import ..libs.utils
+import ..libs.weather
 
 config ::= Flash.get "config" {
   "operation-mode": "auto",
@@ -29,20 +31,24 @@ state ::= {
 }
 
 advertise-central-station:
-  broadcast := Server
+  server := Server
   network := net.open
   my-ip := network.address
   network.close
   while true:
-    if state["modules"].size > 0:
-      sleep (Duration --m=10)
     print "Broadcasting central station at $my-ip"
     msg := {"type": "central-station", "ip": "$my-ip"}
-    json.stringify msg
-    sleep (Duration --s=10)
+    server.broadcast (json.stringify msg)
 
-update-state:
+    if state["modules"].size > 0:
+      sleep (Duration --m=10)
+    else:
+      sleep (Duration --s=10)
 
+get-weather:
+  weather := Weather 47 48
+  weather.read
+  return weather
 
 get-state:
   return json.stringify state:: | entry |
@@ -77,14 +83,26 @@ class Module:
     return to-json
 
 main:
+  print "Starting central station"
+  update-time
+
+  weather := get-weather
+
   clients := []
 
   task:: advertise-central-station
+  task --background:: 
+    while true: trigger-heartbeat 2 1
   task:: 
     while true:
+      if weather.available:
+        state["station"]["temperature"] = weather.temperature
+        state["station"]["humidity"] = weather.humidity
+        state["station"]["pressure"] = weather.pressure
       send-updates-to-clients clients
       sleep --ms=1000
 
+  // Start the web server
   network := net.open
   server := (http.Server --max-tasks=4)
   server.listen network 80:: | request/http.RequestIncoming writer/http.ResponseWriter |

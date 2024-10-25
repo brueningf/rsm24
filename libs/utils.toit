@@ -22,6 +22,14 @@ write-gpio number/int value/int:
   pin.set value
   pin.close
 
+trigger-heartbeat n/int v/int=0:
+  pin := gpio.Pin n --output
+  pin.set v
+  sleep (Duration --us=10)
+  pin.set (1 - v)
+  sleep --ms=999
+  pin.close
+
 
 update-time:
   set-timezone "<-05>5"

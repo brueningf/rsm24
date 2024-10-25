@@ -1,8 +1,20 @@
 sdk: ^2.0.0-alpha.145
 prefixes:
+  aht20: aht20-driver
+  bmp280: bmp280-driver
   http: pkg-http
   ntp: pkg-ntp
 packages:
+  aht20-driver:
+    url: github.com/davidlao2k/aht20-driver
+    name: aht20
+    version: 1.0.0
+    hash: 5a1b93b3183b0520f4b30522e0c489a0589f7897
+  bmp280-driver:
+    url: github.com/harshkc03/bmp280-driver
+    name: bmp280
+    version: 1.0.0
+    hash: 17824b46f0fd5b9355e616de4bb5603dd6e9f6eb
   pkg-http:
     url: github.com/toitlang/pkg-http
     name: http
