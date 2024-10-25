@@ -67,8 +67,8 @@ main:
     while true:
       data["state"]["ADC1_4"] = read-adc 32
       data["state"]["ADC1_6"] = read-adc 34
-      data["state"]["PC1"] += read-counter 36
-      data["state"]["DI2"] = read-gpio 39
+      data["state"]["PC1"] += read-counter config["DI2"]
+      data["state"]["DI2"] = read-gpio config["DI2"]
       data["state"]["DI3"] = read-gpio 35
       data["state"]["DI4"] = read-gpio 4
       data["state"]["DI5"] = read-gpio 16
