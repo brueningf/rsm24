@@ -47,6 +47,16 @@ state := {
 
 main:
   update-time
+  task::
+    // speaker
+    while true:
+      speaker := gpio.Pin 27 --output
+      speaker.set 1
+      sleep --ms=15
+      speaker.set 0
+      speaker.close
+      sleep --ms=15000
+
   central-station-ip := search-central-station
   print "Central station found at $central-station-ip"
 
@@ -54,15 +64,16 @@ main:
   system.print-objects --gc
         
   task::
-    data["state"]["ADC1_4"] = read-adc 32
-    data["state"]["ADC1_6"] = read-adc 34
-    data["state"]["PC1"] += read-counter 36
-    data["state"]["DI2"] = read-gpio 39
-    data["state"]["DI3"] = read-gpio 35
-    data["state"]["DI4"] = read-gpio 4
-    data["state"]["DI5"] = read-gpio 16
-    data["state"]["DI6"] = read-gpio 21
-    sleep --ms=1000
+    while true:
+      data["state"]["ADC1_4"] = read-adc 32
+      data["state"]["ADC1_6"] = read-adc 34
+      data["state"]["PC1"] += read-counter 36
+      data["state"]["DI2"] = read-gpio 39
+      data["state"]["DI3"] = read-gpio 35
+      data["state"]["DI4"] = read-gpio 4
+      data["state"]["DI5"] = read-gpio 16
+      data["state"]["DI6"] = read-gpio 21
+      sleep --ms=1000
 
   network := net.open
   client := http.Client network

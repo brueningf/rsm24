@@ -11,7 +11,7 @@ import ..libs.broadcast
 import ..libs.utils
 import ..libs.weather
 
-config ::= Flash.get "config" {
+config ::= {
   "operation-mode": "auto",
   "pulse-per-liter": 380,
   "tank-1-max": 4000,
@@ -92,7 +92,8 @@ main:
 
   task:: advertise-central-station
   task --background:: 
-    while true: trigger-heartbeat 2 1
+    while true: 
+      trigger-heartbeat 2
   task:: 
     while true:
       if weather.available:

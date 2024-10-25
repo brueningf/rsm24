@@ -33,8 +33,9 @@ class Weather:
   
       try:
         bmp280-exception := catch:
-          device := bus.device bmp280.I2C_ADDRESS_ALT
+          device := bus.device bmp280.I2C-ADDRESS-ALT
           driver := bmp280.Bmp280 device
+          driver.on
           temperature = driver.read-temperature
           pressure = driver.read-pressure / 100
         if bmp280-exception:
