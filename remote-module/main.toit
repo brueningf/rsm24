@@ -8,9 +8,9 @@ import pulse-counter
 import ..libs.broadcast
 import ..libs.utils
 
-config := {
-  "ADC1_4": 32,
-  "ADC1_6": 34,
+config ::= {
+  "AIN1": 32,
+  "AIN2": 34,
   "DI1": 36,
   "DI2": 39,
   "DI3": 35,
@@ -28,21 +28,18 @@ config := {
 data := {
   "type": "module",
   "state": {
-      "ADC1_4":read-adc 32,
-      "ADC1_6":read-adc 34,
-      "PC1": 0,
-      "DI2": read-gpio config["DI2"],
-      "DI3": read-gpio config["DI3"],
-      "DI4": read-gpio config["DI4"],
-      "DI5": read-gpio config["DI5"],
+    "AIN1": 0,
+    "AIN2": 0,
+    "PC1": 0,
+    "DI2": 0, 
+    "DI3": 0,
+    "DI4": 0, 
+    "DI5": 0,
+    "DO1": 0,
+    "DO2": 0,
+    "DO3": 0,
+    "DO4": 0,
   }
-}
-
-state := {
-  "DO1": 0,
-  "DO2": 0,
-  "DO3": 0,
-  "DO4": 0,
 }
 
 main:
@@ -50,7 +47,7 @@ main:
   task::
     // speaker
     while true:
-      speaker := gpio.Pin 27 --output
+      speaker := gpio.Pin config["DO1"] --output
       speaker.set 1
       sleep --ms=15
       speaker.set 0
@@ -62,17 +59,18 @@ main:
 
   sleep --ms=5000
   system.print-objects --gc
+
+  task:: read-counter config["DI2"]
         
   task::
     while true:
-      data["state"]["ADC1_4"] = read-adc 32
-      data["state"]["ADC1_6"] = read-adc 34
-      data["state"]["PC1"] += read-counter config["DI2"]
-      data["state"]["DI2"] = read-gpio config["DI2"]
-      data["state"]["DI3"] = read-gpio 35
-      data["state"]["DI4"] = read-gpio 4
-      data["state"]["DI5"] = read-gpio 16
-      data["state"]["DI6"] = read-gpio 21
+      data["state"]["AIN1"] = read-adc config["AIN1"]
+      data["state"]["AIN2"] = read-adc config["AIN2"]
+      data["state"]["DI1"] = read-gpio config["DI1"]
+      data["state"]["DI3"] = read-gpio config["DI3"]
+      data["state"]["DI4"] = read-gpio config["DI4"]
+      data["state"]["DI5"] = read-gpio config["DI5"]
+      data["state"]["DI6"] = read-gpio config["DI6"]
       sleep --ms=1000
 
   network := net.open
@@ -91,8 +89,7 @@ main:
           json-parse-exception := catch:
             decoded := json.parse received
             if decoded["type"] == "central-station":
-              state = decoded["state"]
-              update-state
+              update-state decoded["state"]
 
           if json-parse-exception:
             print "Exception: $json-parse-exception"
@@ -109,19 +106,19 @@ main:
       sleep --ms=2000
    
 read-counter number/int:
-  pin := gpio.Pin number
   unit := pulse-counter.Unit
+  pin := gpio.Pin number
   channel := unit.add-channel (pin)
-  result := 0
-  if unit.value >= config["PC1_DIVISOR"]:
-    result = unit.value / config["PC1_DIVISOR"]
-    unit.clear  
+  while true:
+    if unit.value >= config["PC1_DIVISOR"]:
+      data["state"]["PC1"] += unit.value / config["PC1_DIVISOR"]
+      unit.clear  
+    sleep --ms=1000
   channel.close
   unit.close
   pin.close
-  return result
 
-update-state:
+update-state state:
   state.do:
     write-gpio config[it] state[it]
     print "Wrote $state[it] to $it"

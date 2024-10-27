@@ -11,13 +11,13 @@ import ..libs.broadcast
 import ..libs.utils
 import ..libs.weather
 
-config ::= {
+config ::= Flash.get "config" {
   "operation-mode": "auto",
   "pulse-per-liter": 380,
   "tank-1-max": 4000,
   "tank-1-min": 1000,
   "tank-1-capacity": 5000,
-  "tank-1-threshold": null,
+  "tank-1-threshold": 1,
 }
 
 state ::= {
@@ -25,6 +25,14 @@ state ::= {
     "temperature": 0,
     "humidity": 0,
     "pressure": 0,
+    "AIN0": 0,
+    "AIN1": 0,
+    "AIN2": 0,
+    "AIN4": 0,
+    "DI1": 0,
+    "DI2": 0,
+    "DI3": 0,
+    "DI4": 0,
   },
   "modules": [],
   "config": config
@@ -100,6 +108,16 @@ main:
         state["station"]["temperature"] = weather.temperature
         state["station"]["humidity"] = weather.humidity
         state["station"]["pressure"] = weather.pressure
+        
+      state["station"]["AIN0"] = read-adc 4
+      state["station"]["AIN1"] = read-adc 5
+      state["station"]["AIN2"] = read-adc 6
+      state["station"]["AIN4"] = read-adc 7
+      state["station"]["DI1"] = read-gpio 15
+      state["station"]["DI2"] = read-gpio 16
+      state["station"]["DI3"] = read-gpio 37
+      state["station"]["DI4"] = read-gpio 38
+
       send-updates-to-clients clients
       sleep --ms=1000
 

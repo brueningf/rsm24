@@ -12,10 +12,14 @@ read-adc number/int -> string:
   return value
 
 read-gpio number/int -> int:
-  pin := gpio.Pin number --input
-  value := pin.get
-  pin.close
-  return value
+  exception := catch:
+    pin := gpio.Pin number --input
+    value := pin.get
+    pin.close
+    return value
+  if exception:
+    print "Exception: $exception on pin $number"
+  return 2
 
 write-gpio number/int value/int:
   pin := gpio.Pin number --output
