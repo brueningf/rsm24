@@ -80,12 +80,22 @@ index data/any:
 
         function centralStation() {
             return {
+                init() {
+                    document.addEventListener('store-update', () => {
+                        this.state = window.data.station;
+                    });
+                },
                 state: window.data.station,
             };
         }
 
         function modules() {
             return {
+                init() {
+                    document.addEventListener('store-update', () => {
+                        this.items = window.data.modules;
+                    });
+                },
                 items: window.data.modules,
             };
         }
@@ -149,6 +159,7 @@ index data/any:
 
             // update window.data
             window.data = JSON.parse(event.data);
+            document.dispatchEvent(new CustomEvent('store-update'));
         };
 
         input.addEventListener('keydown', function(event) {
