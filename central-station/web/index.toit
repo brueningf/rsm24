@@ -77,7 +77,20 @@ index data/any:
                 }
             };
         }
+
+        function centralStation() {
+            return {
+                state: window.data.station,
+            };
+        }
+
+        function modules() {
+            return {
+                items: window.data.modules,
+            };
+        }
     </script>
+
     <h1>Central Station</h1>
     <div id="settings" class="bg-gray-300 p-2">
       <form x-data="config" x-on:submit.prevent="submit">
@@ -87,11 +100,29 @@ index data/any:
                 <input x-model="items[key]" id="key" type="text" name="key" class="w-1/2" required>
             </div>
         </template>
-        <button type="submit">Submit</button>
+        $(button "Save" "submit")
       </form>
-
     </div>
-    <h1>Chat Server</h1>
+
+    <div x-data="centralStation" class="bg-gray-300 p-2 border">
+      <h1>Central Station</h1>
+      <template x-for="(value, key) in state" :key="key">
+        <div x-text="key + ': ' + value"></div>
+      </template>
+    </div>
+
+    <div x-data="modules" class="bg-gray-300 p-2 border">
+      <h1>Modules</h1>
+      <template x-for="item in items" :key="item">
+        <div>
+            <template x-for="(value, key) in JSON.parse(item)" :key="key">
+                <div x-text="key + ': ' + value"></div>
+            </template>
+        </div>
+      </template>
+    </div>
+
+    <h1>Server Log</h1>
     <div id="messages" class="h-[50vh] overflow-y-scroll bg-gray-300 p-2"></div>
     <input id="input" type="text" placeholder="Type your message and hit Enter...">
     </main>
@@ -115,6 +146,9 @@ index data/any:
             if (messages.children.length > 50) {
                 messages.removeChild(messages.firstChild);
             }
+
+            // update window.data
+            window.data = JSON.parse(event.data);
         };
 
         input.addEventListener('keydown', function(event) {

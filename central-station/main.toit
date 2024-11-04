@@ -3,6 +3,7 @@ import http
 import net
 import net.tcp
 import encoding.json
+import system
 
 import .web.index
 
@@ -102,7 +103,7 @@ main:
   task --background:: 
     while true: 
       trigger-heartbeat 2
-  task:: 
+  task --background:: 
     while true:
       if weather.available:
         state["station"]["temperature"] = weather.temperature
@@ -120,6 +121,8 @@ main:
 
       send-updates-to-clients clients
       sleep --ms=1000
+
+  system.print-objects --gc
 
   // Start the web server
   network := net.open
