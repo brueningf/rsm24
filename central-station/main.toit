@@ -36,6 +36,14 @@ state ::= {
     "DI2": 0,
     "DI3": -1,
     "DI4": 0,
+    "DO1": 0,
+    "DO2": 0,
+    "DO3": 0,
+    "DO4": 0,
+    "DO5": 0,
+    "P1": 0,
+    "P2": 0,
+    "AUX": 0,
   },
   "modules": [],
   "config": config
@@ -105,10 +113,29 @@ main:
     while true: 
       trigger-heartbeat 2
 
-  task --background::
+  // task --background::
+  //   while true:
+  //     [9,10,11,12,13].do:
+  //       trigger-pin it
+  //     sleep --ms=1000
+  task::
+    DO1 := gpio.Pin 9 --output
+    DO2 := gpio.Pin 10 --output
+    DO3 := gpio.Pin 11 --output
+    DO4 := gpio.Pin 12 --output
+    DO5 := gpio.Pin 13 --output
+    P1 := gpio.Pin 17 --output
+    P2 := gpio.Pin 18 --output
+    AUX := gpio.Pin 8 --output
     while true:
-      [9,10,11,12,13].do:
-        trigger-pin it
+      DO1.set state["station"]["DO1"]
+      DO2.set state["station"]["DO2"]
+      DO3.set state["station"]["DO3"]
+      DO4.set state["station"]["DO4"]
+      DO5.set state["station"]["DO5"]
+      P1.set state["station"]["P1"]
+      P2.set state["station"]["P2"]
+      AUX.set state["station"]["AUX"]
       sleep --ms=1000
 
   task:: 
@@ -134,12 +161,25 @@ main:
 
   // Start the web server
   network := net.open
-  server := (http.Server --max-tasks=4)
+  server := (http.Server --max-tasks=3)
   server.listen network 80:: | request/http.RequestIncoming writer/http.ResponseWriter |
     if request.path == "/":
       writer.headers.set "Content-Type" "text/html"
       writer.headers.set "Connection" "close"
       writer.out.write (render-view "index" (get-state))
+    else if request.path == "/set-output" and request.method == http.POST:
+      decoded := json.decode-stream request.body
+      if not state["station"].contains decoded["name"]:
+        writer.headers.set "Content-Type" "text/html"
+        writer.headers.set "Connection" "close"
+        writer.write-headers 401
+        writer.out.write ("Failed")
+      else:  
+        state["station"][decoded["name"]] = decoded["value"]
+        writer.headers.set "Content-Type" "text/html"
+        writer.headers.set "Connection" "close"
+        writer.write-headers 200
+        writer.out.write ("Success")
     else if request.path == "/login":
       if request.method == http.POST:
         decoded := json.decode-stream request.body

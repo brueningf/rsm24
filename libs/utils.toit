@@ -24,7 +24,6 @@ read-gpio number/int -> int:
 write-gpio number/int value/int:
   pin := gpio.Pin number --output
   pin.set value
-  pin.close
 
 trigger-heartbeat n/int v/int=0:
   pin := gpio.Pin n --output

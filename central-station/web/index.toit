@@ -99,6 +99,22 @@ index data/any:
                 items: window.data.modules,
             };
         }
+
+        function setOutput(outputName) {
+          return {
+            name: outputName,
+            value: 0,
+            submit(e) {
+                fetch('/set-output', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: this.name, value: +this.value }),
+                })
+            }
+          }
+        }
     </script>
 
     <h1>Central Station</h1>
@@ -112,6 +128,66 @@ index data/any:
         </template>
         $(button "Save" "submit")
       </form>
+
+      <div class="grid grid-cols-1 gap-y-8">
+      <form x-data="setOutput('DO1')" x-on:submit.prevent="submit">
+        <label for="defaultToggle1" class="inline-flex cursor-pointer items-center gap-3">
+            <input id="defaultToggle1" type="checkbox" class="peer sr-only" role="switch" name="value" x-model="value" x-on:change="submit"/>
+            <span class="trancking-wide text-sm font-medium text-black peer-checked:text-neutral-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" x-text="name"></span>
+            <div class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-neutral-300 bg-neutral-50 after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-neutral-600 after:transition-all after:content-[''] peer-checked:bg-black peer-checked:after:bg-neutral-100 peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-neutral-800 peer-focus:peer-checked:outline-black peer-active:outline-offset-0 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" aria-hidden="true"></div>
+        </label>
+      </form>
+      <form x-data="setOutput('DO2')" x-on:submit.prevent="submit">
+        <label for="defaultToggle2" class="inline-flex cursor-pointer items-center gap-3">
+            <input id="defaultToggle2" type="checkbox" class="peer sr-only" role="switch" name="value" x-model="value" x-on:change="submit"/>
+            <span class="trancking-wide text-sm font-medium text-black peer-checked:text-neutral-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" x-text="name"></span>
+            <div class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-neutral-300 bg-neutral-50 after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-neutral-600 after:transition-all after:content-[''] peer-checked:bg-black peer-checked:after:bg-neutral-100 peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-neutral-800 peer-focus:peer-checked:outline-black peer-active:outline-offset-0 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" aria-hidden="true"></div>
+        </label>
+      </form>
+      <form x-data="setOutput('DO3')" x-on:submit.prevent="submit">
+        <label for="defaultToggle3" class="inline-flex cursor-pointer items-center gap-3">
+            <input id="defaultToggle3" type="checkbox" class="peer sr-only" role="switch" name="value" x-model="value" x-on:change="submit"/>
+            <span class="trancking-wide text-sm font-medium text-black peer-checked:text-neutral-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" x-text="name"></span>
+            <div class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-neutral-300 bg-neutral-50 after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-neutral-600 after:transition-all after:content-[''] peer-checked:bg-black peer-checked:after:bg-neutral-100 peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-neutral-800 peer-focus:peer-checked:outline-black peer-active:outline-offset-0 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" aria-hidden="true"></div>
+        </label>
+      </form>
+      <form x-data="setOutput('DO4')" x-on:submit.prevent="submit">
+        <label for="defaultToggle4" class="inline-flex cursor-pointer items-center gap-3">
+            <input id="defaultToggle4" type="checkbox" class="peer sr-only" role="switch" name="value" x-model="value" x-on:change="submit"/>
+            <span class="trancking-wide text-sm font-medium text-black peer-checked:text-neutral-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" x-text="name"></span>
+            <div class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-neutral-300 bg-neutral-50 after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-neutral-600 after:transition-all after:content-[''] peer-checked:bg-black peer-checked:after:bg-neutral-100 peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-neutral-800 peer-focus:peer-checked:outline-black peer-active:outline-offset-0 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" aria-hidden="true"></div>
+        </label>
+      </form>
+      <form x-data="setOutput('DO5')" x-on:submit.prevent="submit">
+        <label for="defaultToggle5" class="inline-flex cursor-pointer items-center gap-3">
+            <input id="defaultToggle5" type="checkbox" class="peer sr-only" role="switch" name="value" x-model="value" x-on:change="submit"/>
+            <span class="trancking-wide text-sm font-medium text-black peer-checked:text-neutral-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" x-text="name"></span>
+            <div class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-neutral-300 bg-neutral-50 after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-neutral-600 after:transition-all after:content-[''] peer-checked:bg-black peer-checked:after:bg-neutral-100 peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-neutral-800 peer-focus:peer-checked:outline-black peer-active:outline-offset-0 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" aria-hidden="true"></div>
+        </label>
+      </form>
+      <form x-data="setOutput('P1')" x-on:submit.prevent="submit">
+        <label for="defaultToggle6" class="inline-flex cursor-pointer items-center gap-3">
+            <input id="defaultToggle6" type="checkbox" class="peer sr-only" role="switch" name="value" x-model="value" x-on:change="submit"/>
+            <span class="trancking-wide text-sm font-medium text-black peer-checked:text-neutral-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" x-text="name"></span>
+            <div class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-neutral-300 bg-neutral-50 after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-neutral-600 after:transition-all after:content-[''] peer-checked:bg-black peer-checked:after:bg-neutral-100 peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-neutral-800 peer-focus:peer-checked:outline-black peer-active:outline-offset-0 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" aria-hidden="true"></div>
+        </label>
+      </form>
+      <form x-data="setOutput('P2')" x-on:submit.prevent="submit">
+        <label for="defaultToggle7" class="inline-flex cursor-pointer items-center gap-3">
+            <input id="defaultToggle7" type="checkbox" class="peer sr-only" role="switch" name="value" x-model="value" x-on:change="submit"/>
+            <span class="trancking-wide text-sm font-medium text-black peer-checked:text-neutral-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" x-text="name"></span>
+            <div class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-neutral-300 bg-neutral-50 after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-neutral-600 after:transition-all after:content-[''] peer-checked:bg-black peer-checked:after:bg-neutral-100 peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-neutral-800 peer-focus:peer-checked:outline-black peer-active:outline-offset-0 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" aria-hidden="true"></div>
+        </label>
+      </form>
+      <form x-data="setOutput('AUX')" x-on:submit.prevent="submit">
+        <label for="defaultToggle8" class="inline-flex cursor-pointer items-center gap-3">
+            <input id="defaultToggle8" type="checkbox" class="peer sr-only" role="switch" name="value" x-model="value" x-on:change="submit"/>
+            <span class="trancking-wide text-sm font-medium text-black peer-checked:text-neutral-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" x-text="name"></span>
+            <div class="relative h-6 w-11 after:h-5 after:w-5 peer-checked:after:translate-x-5 rounded-full border border-neutral-300 bg-neutral-50 after:absolute after:bottom-0 after:left-[0.0625rem] after:top-0 after:my-auto after:rounded-full after:bg-neutral-600 after:transition-all after:content-[''] peer-checked:bg-black peer-checked:after:bg-neutral-100 peer-focus:outline peer-focus:outline-2 peer-focus:outline-offset-2 peer-focus:outline-neutral-800 peer-focus:peer-checked:outline-black peer-active:outline-offset-0 peer-disabled:cursor-not-allowed peer-disabled:opacity-70" aria-hidden="true"></div>
+        </label>
+      </form>
+      </div>
+
     </div>
 
     <div x-data="centralStation" class="bg-gray-300 p-2 border">
