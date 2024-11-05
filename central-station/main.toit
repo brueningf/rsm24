@@ -4,6 +4,7 @@ import net
 import net.tcp
 import encoding.json
 import system
+import gpio
 
 import .web.index
 
@@ -23,6 +24,7 @@ config ::= Flash.get "config" {
 
 state ::= {
   "station": {
+    "errors": Set,
     "temperature": 0,
     "humidity": 0,
     "pressure": 0,
@@ -32,7 +34,7 @@ state ::= {
     "AIN4": 0,
     "DI1": 0,
     "DI2": 0,
-    "DI3": 0,
+    "DI3": -1,
     "DI4": 0,
   },
   "modules": [],
@@ -96,14 +98,20 @@ main:
   update-time
 
   weather := get-weather
-
   clients := []
 
   task:: advertise-central-station
   task --background:: 
     while true: 
       trigger-heartbeat 2
-  task --background:: 
+
+  task --background::
+    while true:
+      [9,10,11,12,13].do:
+        trigger-pin it
+      sleep --ms=1000
+
+  task:: 
     while true:
       if weather.available:
         state["station"]["temperature"] = weather.temperature
@@ -116,7 +124,7 @@ main:
       state["station"]["AIN4"] = read-adc 7
       state["station"]["DI1"] = read-gpio 15
       state["station"]["DI2"] = read-gpio 16
-      state["station"]["DI3"] = read-gpio 37
+      // state["station"]["DI3"] = read-gpio 37
       state["station"]["DI4"] = read-gpio 38
 
       send-updates-to-clients clients

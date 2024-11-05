@@ -34,6 +34,13 @@ trigger-heartbeat n/int v/int=0:
   sleep --ms=999
   pin.close
 
+trigger-pin n/int v/int=0:
+  pin := gpio.Pin n --output
+  pin.set v
+  sleep --ms=1000
+  pin.set (1 - v)
+  sleep --ms=1000
+  pin.close
 
 update-time:
   set-timezone "<-05>5"
