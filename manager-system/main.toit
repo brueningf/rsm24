@@ -5,6 +5,8 @@ import net.wifi
 import encoding.url
 import encoding.json
 
+import .Module
+
 CAPTIVE_PORTAL_SSID     ::= "mywifi"
 CAPTIVE_PORTAL_PASSWORD ::= "12345678"
 
@@ -77,34 +79,44 @@ handle_api request/http.Request writer/http.ResponseWriter:
     if request.method == http.GET:
         // Get all modules
         writer.headers.set "Content-Type" "application/json"
-        writer.out.write (json.encode modules)
+        write-headers writer 200
+        writer.out.write (json.encode modules:: it.stringify)
     else if request.method == http.POST:
         // Add a new module
         decoded := json.decode-stream request.body
-        if not decoded.contains "id":
-          writer.write_headers 400
+        module := null
+        module-exception := catch:
+          module = Module.parse decoded
+
+        if module-exception:
+          write-headers writer 400
           writer.out.write "Bad request"
-        else if (modules.any: it["id"] == decoded["id"]):
-          writer.write_headers 409
+        else if (modules.any: it.id == module.id):
+          write-headers writer 409
           writer.out.write "Conflict"
         else:
-          modules.add decoded
+          modules.add module
           writer.headers.set "Content-Type" "application/json"
+          write-headers writer 201
           writer.out.write "Success"
   else if action == "modules" and id != "":
     if request.method == http.PUT:
         // Update a specific module
         decoded := json.decode-stream request.body
-        module := (modules.filter: it["id"] == id)
-        if modules.size != 0:
-          module = module.first
-          module.do:
-            module[it] = decoded[it]
+        filtered-modules := (modules.filter: it.id == id)
+        if filtered-modules.size != 0:
+          module := filtered-modules.first
+          module.update decoded
           writer.headers.set "Content-Type" "application/json"
+          write-headers writer 200
           writer.out.write "Success"
         else:
-          writer.write_headers 404
+          write-headers writer 404
           writer.out.write "Not found"
     else:
-        writer.write_headers 405
+        write-headers writer 405
         writer.out.write "Method not allowed"
+
+write-headers writer/http.ResponseWriter status/int:
+  writer.headers.set "Connection" "close"
+  writer.write_headers status
