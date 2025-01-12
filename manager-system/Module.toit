@@ -1,25 +1,89 @@
+import gpio
+import gpio.adc
 import encoding.json
+import log
 
 class Module:
-  id /string
+  id /string := ?
+  inputs /List := []
+  outputs /List := []
+  analog-inputs /List := []
+  pulse-counters /List := []
 
-  constructor id_/string:
+  constructor id_/string _inputs/List _outputs/List _analog-inputs/List _pulse-counters/List:
     id = id_
-
-  constructor.parsed module/Map:
-    id = module["id"]
-
-  update module/Map:
-    print "Updating module"
+    _inputs.do:
+      inputs.add (Input it)
+    _outputs.do:
+      outputs.add (Output it)
 
   stringify -> string:
     return json.stringify to-map
 
   to-map -> Map:
-    return {"id": id}
+    return {
+      "id": id,
+      "inputs": inputs.map: it.to-map,
+      "outputs": outputs.map: it.to-map,
+      "analog-inputs": analog-inputs.map: it.to-map,
+    }
 
-  static parse obj/Map -> Module:
-    if not obj.contains "id":
-      throw "Invalid module object"
-    return Module.parsed obj
+abstract class GenericPin:
+  pin /any := null
+  value /int := 0
+
+  to-map -> Map:
+    if pin is int:
+      return {
+        "pin": pin,
+        "value": value
+      }
+    else if pin is gpio.Pin:
+      return {
+        "pin": pin.num,
+        "value": value
+      }
+    else:
+      return {
+        "value": value
+      }
+
+class Input extends GenericPin:
+  constructor _pin/int:
+    pin = _pin
+  
+  read -> int:
+    p := gpio.Pin pin --input
+    value = p.get
+    p.close
+    return value
+
+class Output extends GenericPin:
+  pin /gpio.Pin := ?
+  constructor _pin/int value/int=0:
+    pin = gpio.Pin _pin --output
+    pin.set value
+
+  write value_/int:
+    value = value_
+    pin.set value
+
+class AnalogInput extends GenericPin:
+  value /float := 0.0
+  constructor _pin/int:
+    pin = _pin
+
+  read -> float:
+    p := gpio.Pin pin --input
+    ap := adc.Adc p
+    value = ap.get
+    ap.close
+    p.close
+    return value
+
+class PulseCounter:
+  pin /int := ?
+
+  constructor _pin/int:
+    pin = _pin
 
