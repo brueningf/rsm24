@@ -29,16 +29,15 @@ main:
  
 run:
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"
-    while true:
-      network_ap := wifi.establish
-          --ssid=CAPTIVE_PORTAL_SSID
-          --password=CAPTIVE_PORTAL_PASSWORD
-      log.info "wifi established"      
-      run_http network_ap
+    network_ap := wifi.establish
+        --ssid=CAPTIVE_PORTAL_SSID
+        --password=CAPTIVE_PORTAL_PASSWORD
+    log.info "wifi established"      
+    run_http network_ap
 
 run_http network/net.Interface:
   socket := network.tcp_listen 80
-  server := http.Server
+  server := http.Server --max-tasks=3
   try:
     server.listen socket:: | request writer |
       handle_http_request request writer
