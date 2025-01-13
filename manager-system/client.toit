@@ -3,6 +3,7 @@ import log
 import net
 import net.wifi
 import encoding.json
+import encoding.url
 
 import .Module
 
@@ -11,7 +12,7 @@ CAPTIVE_PORTAL_PASSWORD ::= "12345678"
 
 network := ?
 client := ?
-module := Module "1" [5,18] [22,23] [] []
+module := Module "1" [5,18] [22,23] [33] []
 
 main:
   connect-to-ap
@@ -38,6 +39,7 @@ handle_http_request request/http.Request writer/http.ResponseWriter:
       if resource == "/api/output" and request.method == "POST":
         decoded := json.decode-stream request.body
         log.info "Received JSON: $decoded"
+        module.outputs[decoded["index"]].set decoded["value"]
         write-headers writer 200
         writer.out.write "Success"
   

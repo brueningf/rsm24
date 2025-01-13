@@ -21,7 +21,8 @@ INDEX ::= """
 <html>
 """
 
-modules := []
+modules := Map
+network := ?
 
 main:
   log.info "starting"
@@ -29,13 +30,13 @@ main:
  
 run:
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"
-    network_ap := wifi.establish
+    network = wifi.establish
         --ssid=CAPTIVE_PORTAL_SSID
         --password=CAPTIVE_PORTAL_PASSWORD
     log.info "wifi established"      
-    run_http network_ap
+    run_http
 
-run_http network/net.Interface:
+run_http:
   socket := network.tcp_listen 80
   server := http.Server --max-tasks=3
   try:
@@ -67,7 +68,8 @@ handle_api request/http.Request writer/http.ResponseWriter:
   query := url.QueryString.parse request.path
   resourceList := query.resource.split "/"
   action := resourceList[2]
-  id := ?
+  id := null
+  subAction := null
 
   log.info "API resource: $resourceList"
   log.info "API action: $action"
@@ -75,8 +77,9 @@ handle_api request/http.Request writer/http.ResponseWriter:
   if resourceList.size > 3:
     id = resourceList[3]
     log.info "API id: $id"
-  else:
-    id = null
+  else if resourceList.size > 4:
+    subAction = resourceList[4]
+    log.info "API subAction: $subAction"
 
   if action == "modules":
     if request.method == http.GET:
@@ -87,11 +90,11 @@ handle_api request/http.Request writer/http.ResponseWriter:
     else if request.method == http.POST and not id:
       // Add a new module
       decoded := json.decode-stream request.body
-      if (modules.any: it["id"] == decoded["id"]):
+      if modules.contains decoded["id"]:
         write-headers writer 409
         writer.out.write "Conflict"
       else:
-        modules.add decoded
+        modules[decoded["id"]] = decoded
         writer.headers.set "Content-Type" "application/json"
         write-headers writer 201
         writer.out.write "Success"
@@ -99,12 +102,9 @@ handle_api request/http.Request writer/http.ResponseWriter:
       // Update a specific module
       decoded := json.decode-stream request.body
       log.info "Decoded: $decoded"
-      filtered-modules := (modules.filter: it["id"] == decoded["id"])
 
-      if filtered-modules.size > 0:
-        module := filtered-modules.first
-        modules.remove module
-        modules.add decoded
+      if modules.contains id:
+        modules[id] = decoded
         writer.headers.set "Content-Type" "application/json"
         write-headers writer 200
         writer.out.write "Success"
@@ -114,6 +114,18 @@ handle_api request/http.Request writer/http.ResponseWriter:
     else:
         write-headers writer 405
         writer.out.write "Method not allowed"
+  else if action == "rmt" and request.method == http.POST and id:
+    // Remote control
+    decoded := json.decode-stream request.body
+    module := modules[id]
+    // Send command to module
+    // decoded = { "index": 0, "value": 1 }
+    client := http.Client network
+    response := client.post-json decoded --host=module["ip"] --path="/api/output"
+    client.close
+    
+    write-headers writer 200
+    writer.out.write "Success"
   else:
     write-headers writer 404
     writer.out.write "Not found"

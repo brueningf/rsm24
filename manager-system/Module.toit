@@ -18,6 +18,8 @@ class Module:
       inputs.add (Input it)
     _outputs.do:
       outputs.add (Output it)
+    _analog-inputs.do:
+      analog-inputs.add (AnalogInput it)
 
   update-state:
     inputs.do:
@@ -73,7 +75,7 @@ class Output extends GenericPin:
     pin = gpio.Pin _pin --output
     pin.set value
 
-  write value_/int:
+  set value_/int:
     value = value_
     pin.set value
 
