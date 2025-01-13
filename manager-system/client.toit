@@ -15,8 +15,37 @@ module := Module "1" [5,18] [22,23] [] []
 
 main:
   connect-to-ap
-
   task:: send-update
+  task:: run_http
+
+run_http:
+  while true:
+    socket := network.tcp_listen 80
+    server := http.Server --max-tasks=3
+    try:
+      server.listen socket:: | request writer |
+        handle_http_request request writer
+    finally:
+      socket.close
+    if network.is-closed:
+      sleep (Duration --s=10)
+  
+
+handle_http_request request/http.Request writer/http.ResponseWriter:
+    query := url.QueryString.parse request.path
+    resource := query.resource
+    if resource.starts_with "/api": 
+      if resource == "/api/output" and request.method == "POST":
+        decoded := json.decode-stream request.body
+        log.info "Received JSON: $decoded"
+        write-headers writer 200
+        writer.out.write "Success"
+  
+    else:
+      write-headers writer 404
+      writer.out.write "Not found: $resource"
+  
+    writer.close
 
 connect-to-ap:
   while true:
@@ -30,6 +59,7 @@ connect-to-ap:
 
         // Register module
         log.info "Registering module"
+        module.ip = network.address
         response := client.post-json module.to-map --host="200.200.200.1" --path="/api/modules"
         log.info "$response.status-code"
 
@@ -41,8 +71,9 @@ connect-to-ap:
 
 send-update:
   while true:
-    // Update state
+    // Send updated state
     exception := catch:
+      module.update-state
       response := client.post-json module.to-map --host="200.200.200.1" --path="/api/modules/1"
       log.info "$response.status-code"
     if exception:
@@ -51,3 +82,7 @@ send-update:
       connect-to-ap
 
     sleep (Duration --s=5)
+
+write-headers writer/http.ResponseWriter status/int:
+  writer.headers.set "Connection" "close"
+  writer.write_headers status
