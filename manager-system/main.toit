@@ -86,7 +86,7 @@ handle_api request/http.Request writer/http.ResponseWriter:
       // Get all modules
       writer.headers.set "Content-Type" "application/json"
       write-headers writer 200
-      writer.out.write (json.encode modules:: it.stringify)
+      writer.out.write (json.encode modules.values)
     else if request.method == http.POST and not id:
       // Add a new module
       decoded := json.decode-stream request.body
