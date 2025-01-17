@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +37,12 @@ interface ApiService {
         @Body request: Map<String, Int>
     )
 
+    @GET("/api/settings")
+    suspend fun fetchSettings(): Map<String, Any>
+
+    @POST("/api/settings")
+    suspend fun updateSettings(@Body updatedSettings: Map<String, Any>)
+
     @GET("tanks")
     suspend fun fetchTanks(): List<Tank>
 }
@@ -63,6 +70,12 @@ data class ModuleAnalogInput(
     @SerializedName("value") val value: String
 )
 
+data class Settings(
+    @SerializedName("setting_name") val settingName: String,
+    @SerializedName("setting_value") val settingValue: Int,
+)
+
+
 data class Tank(
     @SerializedName("id") val id: Int,
     @SerializedName("name") val name: String,
@@ -87,10 +100,20 @@ class MainActivity : ComponentActivity() {
 fun DashboardScreen() {
     val tanksState = remember { mutableStateListOf<Tank>() }
     val modulesState = remember { mutableStateListOf<Module>() } // State for modules
+    val settingsState = remember { mutableStateOf<Map<String, Any>?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     // Poll modules data every few seconds
     LaunchedEffect(Unit) {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val settings = ApiClient.api.fetchSettings()
+                settingsState.value = settings
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         while (true) {
             coroutineScope.launch(Dispatchers.IO) {
                 try {
@@ -102,6 +125,21 @@ fun DashboardScreen() {
                 }
             }
             kotlinx.coroutines.delay(5000) // Update every 5 seconds
+        }
+    }
+
+
+    // Save Updated Settings
+    val saveSettings: (Map<String, Any>) -> Unit = { updatedSettings ->
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                ApiClient.api.updateSettings(updatedSettings)
+                // Re-fetch settings after saving to refresh the UI
+                val settings = ApiClient.api.fetchSettings()
+                settingsState.value = settings
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -123,7 +161,7 @@ fun DashboardScreen() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { SettingsSection() }
+            item { SettingsSection(settingsState.value, saveSettings) }
             //item { TriggerButtonsSection() }
             // Display Modules Section
             item { ModulesSection(modulesState) }
@@ -207,18 +245,85 @@ fun ModuleCard(module: Module) {
 
 // Settings Section
 @Composable
-fun SettingsSection() {
+fun SettingsSection(settings: Map<String, Any>?, onSave: (Map<String, Any>) -> Unit) {
+    // State for local edits
+    val editableSettings = remember { mutableStateMapOf<String, Any>() }
+
+    // Initialize editable settings when data is fetched
+    LaunchedEffect(settings) {
+        if (settings != null) {
+            editableSettings.clear()
+            editableSettings.putAll(settings)
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Settings", style = MaterialTheme.typography.titleMedium)
-            // Add settings options here
-            Text("Settings will be configurable via API.")
+
+            if (settings == null) {
+                Text("Loading settings...")
+            } else {
+                Column {
+                    editableSettings.forEach { (key, value) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(key, modifier = Modifier.weight(1f))
+                            when (value) {
+                                is String -> {
+                                    TextField(
+                                        value = editableSettings[key] as String,
+                                        onValueChange = { newValue ->
+                                            editableSettings[key] = newValue
+                                        },
+                                        modifier = Modifier.weight(2f)
+                                    )
+                                }
+                                is Int -> {
+                                    TextField(
+                                        value = editableSettings[key].toString(),
+                                        onValueChange = { newValue ->
+                                            newValue.toIntOrNull()?.let { editableSettings[key] = it }
+                                        },
+                                        modifier = Modifier.weight(2f)
+                                    )
+                                }
+                                is Float -> {
+                                    TextField(
+                                        value = editableSettings[key].toString(),
+                                        onValueChange = { newValue ->
+                                            newValue.toFloatOrNull()?.let { editableSettings[key] = it }
+                                        },
+                                        modifier = Modifier.weight(2f)
+                                    )
+                                }
+                                else -> {
+                                    Text("Unsupported type", modifier = Modifier.weight(2f))
+                                }
+                            }
+                        }
+                    }
+                    Button(
+                        onClick = { onSave(editableSettings) },
+                        modifier = Modifier
+                            .padding(top = 16.dp)
+                            .align(Alignment.End)
+                    ) {
+                        Text("Save Changes")
+                    }
+                }
+            }
         }
     }
 }
+
 
 // Trigger Buttons Section
 @Composable

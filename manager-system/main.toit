@@ -4,6 +4,7 @@ import net
 import net.wifi
 import encoding.url
 import encoding.json
+import system.storage
 
 import .Module
 
@@ -22,10 +23,26 @@ INDEX ::= """
 """
 
 modules := Map
+settings := ?
 network := ?
+
+module := Module "0" [15, 16] [1, 2] [] []
 
 main:
   log.info "starting"
+  modules["0"] = module.to-map
+
+  log.info "loading settings"
+  settings = storage.Bucket.open --flash "config"
+  settings.get "tank-a-capacity" --init=: 1000
+  settings.get "tank-a-threshold-1" --init=: 10
+  settings.get "tank-a-threshold-2" --init=: 100
+
+  task::
+    while true:
+      // update state of this station
+      module.update-state
+
   task:: run
  
 run:
@@ -115,17 +132,38 @@ handle_api request/http.Request writer/http.ResponseWriter:
         write-headers writer 405
         writer.out.write "Method not allowed"
   else if action == "rmt" and request.method == http.POST and id:
-    // Remote control
     decoded := json.decode-stream request.body
-    module := modules[id]
-    // Send command to module
-    // decoded = { "index": 0, "value": 1 }
-    client := http.Client network
-    response := client.post-json decoded --host=module["ip"] --path="/api/output"
-    client.close
+    // todo: validate decoded
+    if id == "0":
+      module.outputs[decoded["index"]].set decoded["value"]
+    else:
+      remote-module := modules[id]
+
+      // Send command to module
+      client := http.Client network
+      response := client.post-json decoded --host=remote-module["ip"] --path="/api/output"
+      client.close
     
     write-headers writer 200
     writer.out.write "Success"
+  else if action == "settings":
+    if request.method == http.GET:
+      // Get all settings
+      writer.headers.set "Content-Type" "application/json"
+      write-headers writer 200
+      writer.out.write (json.encode settings)
+    else if request.method == http.POST:
+      // Update settings
+      decoded := json.decode-stream request.body
+      log.info "Decoded: $decoded"
+      decoded.keys.do:
+        settings.get it --if-present=: decoded[it]
+      writer.headers.set "Content-Type" "application/json"
+      write-headers writer 200
+      writer.out.write "Success"
+    else:
+      write-headers writer 405
+      writer.out.write "Method not allowed"
   else:
     write-headers writer 404
     writer.out.write "Not found"
