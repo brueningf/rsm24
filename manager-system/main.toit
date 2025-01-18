@@ -23,25 +23,37 @@ INDEX ::= """
 """
 
 modules := Map
-settings := ?
 network := ?
+module := ?
 
-module := Module "0" [15, 16] [1, 2] [] []
+settings ::= {
+  "tank-a-capacity": 1000,
+  "tank-a-threshold-1": 10,
+  "tank-a-threshold-2": 100
+}
 
 main:
   log.info "starting"
-  modules["0"] = module.to-map
 
   log.info "loading settings"
-  settings = storage.Bucket.open --flash "config"
-  settings.get "tank-a-capacity" --init=: 1000
-  settings.get "tank-a-threshold-1" --init=: 10
-  settings.get "tank-a-threshold-2" --init=: 100
+  settings-bucket := storage.Bucket.open --flash "config"
+
+  settings.keys.do:
+    settings[it] = settings-bucket.get it --init=: settings[it]
+
+  settings-bucket.close
+  
+
+  log.info "loading module"
+
+  module = Module "0" [15, 16] [1, 2, 9, 10, 11] [4, 6] []
 
   task::
     while true:
       // update state of this station
       module.update-state
+      modules["0"] = module.to-map
+      sleep --ms=1000
 
   task:: run
  
@@ -118,7 +130,7 @@ handle_api request/http.Request writer/http.ResponseWriter:
     else if request.method == http.POST and id:
       // Update a specific module
       decoded := json.decode-stream request.body
-      log.info "Decoded: $decoded"
+      log.info "Updating module $id"
 
       if modules.contains id:
         modules[id] = decoded
@@ -134,6 +146,7 @@ handle_api request/http.Request writer/http.ResponseWriter:
   else if action == "rmt" and request.method == http.POST and id:
     decoded := json.decode-stream request.body
     // todo: validate decoded
+    log.info "Received JSON: $decoded"
     if id == "0":
       module.outputs[decoded["index"]].set decoded["value"]
     else:
@@ -156,8 +169,22 @@ handle_api request/http.Request writer/http.ResponseWriter:
       // Update settings
       decoded := json.decode-stream request.body
       log.info "Decoded: $decoded"
-      decoded.keys.do:
-        settings.get it --if-present=: decoded[it]
+
+      settings-bucket := storage.Bucket.open --flash "config"
+      exception := catch:
+        decoded.keys.do:
+          log.info "Updating setting: $it, $decoded[it]"
+          settings-bucket[it] = decoded[it]
+      if exception:
+        log.error "Failed to update settings"
+        settings-bucket.close
+        write-headers writer 500
+        writer.out.write "Failed"
+        return
+
+      settings.keys.do:
+        settings[it] = settings-bucket.get it --init=: settings[it]
+
       writer.headers.set "Content-Type" "application/json"
       write-headers writer 200
       writer.out.write "Success"

@@ -38,10 +38,10 @@ interface ApiService {
     )
 
     @GET("/api/settings")
-    suspend fun fetchSettings(): Map<String, Any>
+    suspend fun fetchSettings(): Map<String, Int>
 
     @POST("/api/settings")
-    suspend fun updateSettings(@Body updatedSettings: Map<String, Any>)
+    suspend fun updateSettings(@Body updatedSettings: Map<String, Int>)
 
     @GET("tanks")
     suspend fun fetchTanks(): List<Tank>
@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
 fun DashboardScreen() {
     val tanksState = remember { mutableStateListOf<Tank>() }
     val modulesState = remember { mutableStateListOf<Module>() } // State for modules
-    val settingsState = remember { mutableStateOf<Map<String, Any>?>(null) }
+    val settingsState = remember { mutableStateOf<Map<String, Int>?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     // Poll modules data every few seconds
@@ -130,7 +130,7 @@ fun DashboardScreen() {
 
 
     // Save Updated Settings
-    val saveSettings: (Map<String, Any>) -> Unit = { updatedSettings ->
+    val saveSettings: (Map<String, Int>) -> Unit = { updatedSettings ->
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 ApiClient.api.updateSettings(updatedSettings)
@@ -245,9 +245,9 @@ fun ModuleCard(module: Module) {
 
 // Settings Section
 @Composable
-fun SettingsSection(settings: Map<String, Any>?, onSave: (Map<String, Any>) -> Unit) {
+fun SettingsSection(settings: Map<String, Int>?, onSave: (Map<String, Int>) -> Unit) {
     // State for local edits
-    val editableSettings = remember { mutableStateMapOf<String, Any>() }
+    val editableSettings = remember { mutableStateMapOf<String, Int>() }
 
     // Initialize editable settings when data is fetched
     LaunchedEffect(settings) {
@@ -275,37 +275,19 @@ fun SettingsSection(settings: Map<String, Any>?, onSave: (Map<String, Any>) -> U
                                 .padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(key, modifier = Modifier.weight(1f))
+                            Text(key, modifier = Modifier.weight(2f))
                             when (value) {
-                                is String -> {
-                                    TextField(
-                                        value = editableSettings[key] as String,
-                                        onValueChange = { newValue ->
-                                            editableSettings[key] = newValue
-                                        },
-                                        modifier = Modifier.weight(2f)
-                                    )
-                                }
                                 is Int -> {
                                     TextField(
                                         value = editableSettings[key].toString(),
                                         onValueChange = { newValue ->
                                             newValue.toIntOrNull()?.let { editableSettings[key] = it }
                                         },
-                                        modifier = Modifier.weight(2f)
-                                    )
-                                }
-                                is Float -> {
-                                    TextField(
-                                        value = editableSettings[key].toString(),
-                                        onValueChange = { newValue ->
-                                            newValue.toFloatOrNull()?.let { editableSettings[key] = it }
-                                        },
-                                        modifier = Modifier.weight(2f)
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
                                 else -> {
-                                    Text("Unsupported type", modifier = Modifier.weight(2f))
+                                    Text("Unsupported type", modifier = Modifier.weight(1f))
                                 }
                             }
                         }
