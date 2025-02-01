@@ -4,6 +4,7 @@ import net
 import net.wifi
 import encoding.json
 import encoding.url
+import ..libs.utils
 
 import .Module
 
@@ -12,10 +13,13 @@ CAPTIVE_PORTAL_PASSWORD ::= "12345678"
 
 network := ?
 client := ?
-module := Module "1" [5,18] [22,23] [33] []
+module := Module "1" [35,39,35,33] [2,4,13,14,27,26,25] [32,34] []
 
 main:
   connect-to-ap
+  task --background::
+    while true:
+      trigger-heartbeat 16
   task:: send-update
   task:: run_http
 

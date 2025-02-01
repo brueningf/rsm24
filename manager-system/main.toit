@@ -2,9 +2,12 @@ import http
 import log
 import net
 import net.wifi
+import gpio
 import encoding.url
 import encoding.json
 import system.storage
+import system.containers
+import ..libs.utils
 
 import .Module
 
@@ -34,22 +37,24 @@ settings ::= {
 
 main:
   log.info "starting"
+  sleep --ms=10000
+  pin := gpio.Pin 0 --input --pull-up
+  if pin.get == 0: return
 
   log.info "loading settings"
-  settings-bucket := storage.Bucket.open --flash "config"
+  settings-bucket := storage.Bucket.open --flash "settings"
 
   settings.keys.do:
-    settings[it] = settings-bucket.get it --init=: settings[it]
-
-  settings-bucket.close
-  
+    settings[it] = settings-bucket.get it --if-absent=:settings[it]
+  settings-bucket.close 
 
   log.info "loading module"
 
-  module = Module "0" [15, 16] [1, 2, 9, 10, 11] [4, 6] []
+  module = Module "0" [15, 16, 38] [[8, 1], 9, 10, 11, 12, 13, [17, 1], [18, 1]] [4, 5, 6, 7] []
 
   task::
     while true:
+      trigger-heartbeat 2
       // update state of this station
       module.update-state
       modules["0"] = module.to-map
@@ -170,7 +175,7 @@ handle_api request/http.Request writer/http.ResponseWriter:
       decoded := json.decode-stream request.body
       log.info "Decoded: $decoded"
 
-      settings-bucket := storage.Bucket.open --flash "config"
+      settings-bucket := storage.Bucket.open --flash "settings"
       exception := catch:
         decoded.keys.do:
           log.info "Updating setting: $it, $decoded[it]"
@@ -191,6 +196,12 @@ handle_api request/http.Request writer/http.ResponseWriter:
     else:
       write-headers writer 405
       writer.out.write "Method not allowed"
+  else if action == "interrupt":
+      containers.images
+
+      writer.headers.set "Content-Type" "application/json"
+      write-headers writer 200
+      writer.out.write "Success"
   else:
     write-headers writer 404
     writer.out.write "Not found"

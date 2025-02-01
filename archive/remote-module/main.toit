@@ -3,10 +3,13 @@ import net
 import http
 import gpio
 import gpio.adc
+import gpio.pwm
+import gpio.dac show Dac
+
 import encoding.json
 import pulse-counter
-import ..libs.broadcast
-import ..libs.utils
+import ...libs.broadcast
+import ...libs.utils
 
 config ::= {
   "AIN1": 32,
@@ -49,10 +52,19 @@ main:
     while true:
       speaker := gpio.Pin config["DO1"] --output
       speaker.set 1
-      sleep --ms=15
+      sleep --ms=17
+      speaker.set 0
+      sleep --ms=40
+      speaker.set 1
+      sleep --ms=10
       speaker.set 0
       speaker.close
       sleep --ms=15000
+
+  task::
+    dac := Dac (gpio.Pin 25)
+    dac.cosine-wave --frequency=3000
+    sleep --ms=1_000_000
 
   central-station-ip := search-central-station
   print "Central station found at $central-station-ip"

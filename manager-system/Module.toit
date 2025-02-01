@@ -17,7 +17,10 @@ class Module:
     _inputs.do:
       inputs.add (Input it)
     _outputs.do:
-      outputs.add (Output it)
+      if it is List:
+        outputs.add (Output it[0] it[1])
+      else:
+        outputs.add (Output it)
     _analog-inputs.do:
       analog-inputs.add (AnalogInput it)
 
@@ -71,12 +74,13 @@ class Input extends GenericPin:
 
 class Output extends GenericPin:
   pin /gpio.Pin := ?
-  constructor _pin/int value/int=0:
+  constructor _pin/int _value/int=0:
     pin = gpio.Pin _pin --output
+    value = _value
     pin.set value
 
-  set value_/int:
-    value = value_
+  set _value/int:
+    value = _value
     pin.set value
 
 class AnalogInput extends GenericPin:

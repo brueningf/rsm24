@@ -62,7 +62,7 @@ data class ModuleInput(
 
 data class ModuleOutput(
     @SerializedName("pin") val pin: Int,
-    @SerializedName("value") val value: String
+    @SerializedName("value") var value: String
 )
 
 data class ModuleAnalogInput(
@@ -218,7 +218,7 @@ fun ModuleCard(module: Module) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Pin: ${output.pin}, Value: ${output.value}")
+                    Text("GPIO: ${output.pin}, Value: ${output.value}")
                     Button(onClick = {
                         // Call the API to toggle the output
                         CoroutineScope(Dispatchers.IO).launch {
@@ -228,10 +228,18 @@ fun ModuleCard(module: Module) {
                                     "value" to if (output.value == "0") 1 else 0 // Toggle logic
                                 )
                                 ApiClient.api.toggleModuleOutput(module.id, toggleRequest)
+
+                                if (output.value == "0") {
+                                    output.value = "1"
+                                } else {
+                                    output.value = "0"
+                                }
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
-                        }                    }) {
+                        }
+                    })
+                    {
                         Text("Toggle")
                     }
                 }
