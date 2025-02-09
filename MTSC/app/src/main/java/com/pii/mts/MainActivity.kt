@@ -26,6 +26,8 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Body
 
+import android.view.WindowManager;
+
 // Retrofit API Interface
 interface ApiService {
     @GET("/api/modules")
@@ -93,6 +95,7 @@ class MainActivity : ComponentActivity() {
                 DashboardScreen()
             }
         }
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 }
 

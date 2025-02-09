@@ -13,7 +13,7 @@ CAPTIVE_PORTAL_PASSWORD ::= "12345678"
 
 network := ?
 client := ?
-module := Module "1" [35,39,35,33] [2,4,13,14,27,26,25] [32,34] []
+module := Module "1" [2,35,39,36,33] [4,13,14,27,26,25] [32,34] []
 
 main:
   connect-to-ap
@@ -21,9 +21,9 @@ main:
     while true:
       trigger-heartbeat 16
   task:: send-update
-  task:: run_http
+  task:: run-http
 
-run_http:
+run-http:
   while true:
     socket := network.tcp_listen 80
     server := http.Server --max-tasks=3
