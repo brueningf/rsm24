@@ -1,5 +1,6 @@
 import http
 import log
+import gpio
 import net
 import net.wifi
 import encoding.json
@@ -16,6 +17,21 @@ client := ?
 module := Module "1" [2,35,39,36,33] [4,13,14,27,26,25] [32,34] []
 
 main:
+  log.info "starting"
+  signal := gpio.Pin 16 --output
+  signal.set 1
+  sleep --ms=5000
+  pin := gpio.Pin 0 --input --pull-up
+  if pin.get == 0: 
+    log.info "aborting"
+    signal.set 0
+    sleep --ms=2000
+    signal.set 1
+    sleep --ms=2000
+    return
+  pin.close
+  signal.close
+  
   connect-to-ap
   task --background::
     while true:
