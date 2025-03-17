@@ -63,11 +63,6 @@ main:
 
   task::
     while true:
-      trigger-heartbeat 2
-      // update state of this station
-      module.update-state
-      modules["0"] = module.to-map
-
       if modules.contains "1" and network:
         client := http.Client network
         remote-module := modules["1"]
@@ -91,9 +86,15 @@ main:
               response := client.post-json {"index": 1, "value": 0 } --host=remote-module["ip"] --path="/api/output"
         if drive-pump-exception:
           print "failed driving pump"
+      sleep --ms=5000
 
+  task::
+    while true:
+      trigger-heartbeat 2
+      // update state of this station
+      module.update-state
+      modules["0"] = module.to-map
       sleep --ms=1000
-
  
 run:
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"

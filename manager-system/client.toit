@@ -33,7 +33,7 @@ main:
   signal.close
   
   connect-to-ap
-  task::
+  task --background::
     while true:
       exception := catch:
         manual-pump := gpio.Pin 33 --input
@@ -42,15 +42,14 @@ main:
         manual-pump.do:
           if Time.now > timeout:
             break
-          if it.read == 0:
-            time += Duration --m=1
-
-          module.outputs[1].set 1 --manual
-          sleep (time)
-          module.outputs[1].set 0 --manual
-          module.outputs[1].manual = false
-
+          time += Duration --m=1
+        manual-pump.close
+        module.outputs[1].set 1 --manual
+        sleep (time)
+        module.outputs[1].set 0 --manual
+        module.outputs[1].manual = false
       sleep --ms=1000
+
   task --background::
     while true:
       trigger-heartbeat 16
