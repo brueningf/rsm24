@@ -74,14 +74,23 @@ class Input extends GenericPin:
 
 class Output extends GenericPin:
   pin /gpio.Pin := ?
+  manual /bool := false
   constructor _pin/int _value/int=0:
     pin = gpio.Pin _pin --output
     value = _value
     pin.set value
 
-  set _value/int:
+  set _value/int --manual:
+    manual = true
     value = _value
     pin.set value
+
+  set _value/int:
+    if manual: return
+    value = _value
+    pin.set value
+
+
 
 class AnalogInput extends GenericPin:
   value /float := 0.0

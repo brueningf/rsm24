@@ -33,6 +33,24 @@ main:
   signal.close
   
   connect-to-ap
+  task::
+    while true:
+      exception := catch:
+        manual-pump := gpio.Pin 33 --input
+        timeout := Time.now + (Duration --s=10)
+        time := Duration --m=0
+        manual-pump.do:
+          if Time.now > timeout:
+            break
+          if it.read == 0:
+            time += Duration --m=1
+
+          module.outputs[1].set 1 --manual
+          sleep (time)
+          module.outputs[1].set 0 --manual
+          module.outputs[1].manual = false
+
+      sleep --ms=1000
   task --background::
     while true:
       trigger-heartbeat 16
@@ -59,7 +77,12 @@ handle_http_request request/http.Request writer/http.ResponseWriter:
       if resource == "/api/output" and request.method == "POST":
         decoded := json.decode-stream request.body
         log.info "Received JSON: $decoded"
-        module.outputs[decoded["index"]].set decoded["value"]
+        if decoded.contains "manual":
+          module.outputs[decoded["index"]].set decoded["value"] --manual
+          if module.outputs[decoded["index"]].manual:
+            module.outputs[decoded["index"]].manual = false
+        else if not module.outputs[decoded["index"]].manual:
+          module.outputs[decoded["index"]].set decoded["value"]
         write-headers writer 200
         writer.out.write "Success"
   
