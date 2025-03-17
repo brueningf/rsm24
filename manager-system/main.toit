@@ -39,7 +39,13 @@ main:
   log.info "starting"
   sleep --ms=10000
   pin := gpio.Pin 0 --input --pull-up
-  if pin.get == 0: return
+  if pin.get == 0: 
+    led := gpio.Pin 2 --output
+    led.set 1
+    sleep --ms=2000
+    led.set 0
+    sleep --ms=2000
+    return
 
   log.info "loading settings"
   settings-bucket := storage.Bucket.open --flash "settings"
@@ -51,6 +57,9 @@ main:
   log.info "loading module"
 
   module = Module "0" [15, 16, 38] [[8, 1], 9, 10, 11, 12, 13, [17, 1], [18, 1]] [4, 5, 6, 7] []
+  pump-active := false
+
+  task:: run
 
   task::
     while true:
@@ -58,9 +67,33 @@ main:
       // update state of this station
       module.update-state
       modules["0"] = module.to-map
+
+      if modules.contains "1" and network:
+        client := http.Client network
+        remote-module := modules["1"]
+        level := remote-module["analog-inputs"][0]
+        output := remote-module["outputs"][1]
+
+        if level["value"] <= 0.35:
+          pump-active = false
+        else if level["value"] >= 0.85:
+          pump-active = true
+
+        drive-pump-exception := catch:
+          if pump-active:
+            if output["value"] != 1:
+              print "activate pump"
+              // Send command to module
+              response := client.post-json {"index": 1, "value": 1 } --host=remote-module["ip"] --path="/api/output"
+          else:
+            if output["value"] != 0:
+              print "deactivate pump"
+              response := client.post-json {"index": 1, "value": 0 } --host=remote-module["ip"] --path="/api/output"
+        if drive-pump-exception:
+          print "failed driving pump"
+
       sleep --ms=1000
 
-  task:: run
  
 run:
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"
@@ -152,6 +185,7 @@ handle_api request/http.Request writer/http.ResponseWriter:
     decoded := json.decode-stream request.body
     // todo: validate decoded
     log.info "Received JSON: $decoded"
+    decoded["manual"] = 1
     if id == "0":
       module.outputs[decoded["index"]].set decoded["value"]
     else:
