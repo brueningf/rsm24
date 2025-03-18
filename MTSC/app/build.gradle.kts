@@ -60,6 +60,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
+    // graphs
+    implementation ("io.github.ehsannarmani:compose-charts:0.1.2")
+
     // Retrofit for HTTP Communication
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")

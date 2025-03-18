@@ -26,7 +26,26 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Body
 
+
 import android.view.WindowManager;
+import androidx.compose.animation.core.EaseInOutCubic
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import ir.ehsannarmani.compose_charts.LineChart
+import ir.ehsannarmani.compose_charts.models.AnimationMode
+import ir.ehsannarmani.compose_charts.models.DrawStyle
+import ir.ehsannarmani.compose_charts.models.HorizontalIndicatorProperties
+import ir.ehsannarmani.compose_charts.models.LabelHelperProperties
+import ir.ehsannarmani.compose_charts.models.Line
 
 // Retrofit API Interface
 interface ApiService {
@@ -99,6 +118,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen() {
     val tanksState = remember { mutableStateListOf<Tank>() }
@@ -127,7 +147,7 @@ fun DashboardScreen() {
                     e.printStackTrace() // Handle exceptions (e.g., network issues)
                 }
             }
-            kotlinx.coroutines.delay(5000) // Update every 5 seconds
+            kotlinx.coroutines.delay(1000) // Update every 5 seconds
         }
     }
 
@@ -146,30 +166,48 @@ fun DashboardScreen() {
         }
     }
 
+    var selectedTabIndex by remember { mutableStateOf(0) }
+
+    val tabTitles = listOf("Modules", "Tanks", "Settings")
+
     Scaffold(
         topBar = {
-            Text(
-                text = "Multi-Tank System",
-                modifier = Modifier
-                    .statusBarsPadding() // Automatically accounts for system status bar height
-                    .padding(start = 16.dp, top = 10.dp, end = 16.dp) // Add horizontal padding
+            TopAppBar(
+                title = { Text("Multi-Tank System") },
+                modifier = Modifier.statusBarsPadding()
             )
         },
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
-        LazyColumn(
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { SettingsSection(settingsState.value, saveSettings) }
-            //item { TriggerButtonsSection() }
-            // Display Modules Section
-            item { ModulesSection(modulesState) }
-            // Display Tanks Section
-            item { TankInfoSection(tanksState) }
+            // Tabs
+            TabRow(selectedTabIndex = selectedTabIndex) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = { Text(title) }
+                    )
+                }
+            }
+
+            // Tab Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+            ) {
+                when (selectedTabIndex) {
+                    0 -> ModulesSection(modulesState)
+                    1 -> TankInfoSection(tanksState)
+                    2 -> SettingsSection(settingsState.value, saveSettings)
+                }
+            }
         }
     }
 }
@@ -177,15 +215,20 @@ fun DashboardScreen() {
 // Modules Section
 @Composable
 fun ModulesSection(modules: List<Module>) {
-    if (modules.isEmpty()) {
-        Text(
-            text = "Loading modules...",
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-    } else {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Modules", style = MaterialTheme.typography.titleMedium)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()), // Enables scrolling
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (modules.isEmpty()) {
+            Text(
+                text = "Loading modules...",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
             for (module in modules) {
                 ModuleCard(module)
             }
@@ -199,58 +242,160 @@ fun ModuleCard(module: Module) {
     val coroutineScope = rememberCoroutineScope() // Use inside the composable
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxSize()
+            .fillMaxHeight(),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Text("Module ID: ${module.id}", style = MaterialTheme.typography.titleMedium)
 
-            Text("Inputs:")
-            for (input in module.inputs) {
-                Text(" - ${input.pin} (V: ${input.value})")
-            }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Space between inputs
+            ) {
+                Text("Inputs:")
+                for ((index, input) in module.inputs.withIndex()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 5.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
 
-            Text("Analog Inputs:")
-            for (analogInput in module.analogInputs) {
-                Text(" - ${analogInput.pin} (V: ${analogInput.value})")
-            }
 
-            Text("Outputs:")
-            for ((index, output) in module.outputs.withIndex()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("GPIO: ${output.pin}, Value: ${output.value}")
-                    Button(onClick = {
-                        // Call the API to toggle the output
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                val toggleRequest = mapOf(
-                                    "index" to index,
-                                    "value" to if (output.value == "0") 1 else 0 // Toggle logic
-                                )
-                                ApiClient.api.toggleModuleOutput(module.id, toggleRequest)
+                    ) {
+                        Text("${index + 1} | ${input.pin} (V: ${input.value})")
 
-                                if (output.value == "0") {
-                                    output.value = "1"
-                                } else {
-                                    output.value = "0"
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                    })
-                    {
-                        Text("Toggle")
+                        // Circle indicator for on/off state
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(if (input.value == "1") Color.Green else Color.Gray) // Green if ON, Gray if OFF
+                        )
                     }
                 }
             }
 
+            // ADCs
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Space between inputs
+            ) {
+                Text("Analog Inputs:")
+                for (analogInput in module.analogInputs) {
+                    AnalogInputGraph(analogInput)
+                }
+            }
 
+            // Outputs
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Space between inputs
+            ) {
+                Text("Outputs:")
+                for ((index, output) in module.outputs.withIndex()) {
+                    OutputToggle(output, index, module)
+                }
+            }
         }
     }
+}
+
+@Composable
+fun OutputToggle(output: ModuleOutput, index: Int, module: Module) {
+    var active by remember { mutableStateOf(output.value == "1") }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("${index + 1} | GPIO: ${output.pin} | Val: ${output.value}")
+
+        Button(
+            onClick = {
+                active = !active // Toggle state to trigger recomposition
+
+                // Call the API to toggle the output
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val toggleRequest = mapOf(
+                            "index" to index,
+                            "value" to if (active) 1 else 0 // Toggle logic
+                        )
+
+                        // Update state to reflect the API request
+                        output.value = if (active) "1" else "0"
+
+                        ApiClient.api.toggleModuleOutput(module.id, toggleRequest)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (active) Color.Green else Color.Red, // Change color based on state
+                contentColor = Color.White // Text color
+            ),
+            modifier = Modifier.widthIn(min = 100.dp) // Set minimum width
+        )
+        {
+            Text(if (active) "ON" else "OFF")
+        }
+    }
+}
+
+@Composable
+fun AnalogInputGraph(analogInput: ModuleAnalogInput) {
+    val values = remember { mutableStateListOf<Double>() }
+
+    // Append values without recomposition
+    LaunchedEffect(analogInput.value.toDouble()) {
+        values.add(analogInput.value.toDouble())
+        if (values.size > 10) values.removeAt(0)
+    }
+
+    // Use a mutable state for Line to avoid re-creating the list
+    val line = remember {
+        mutableStateOf(
+            Line(
+                label = "V",
+                values = values.toList(),
+                color = SolidColor(Color(0xFF23af92)),
+                firstGradientFillColor = Color(0xFF2BC0A1).copy(alpha = .5f),
+                secondGradientFillColor = Color.Transparent,
+                strokeAnimationSpec = tween(1000, easing = EaseInOutCubic),
+                gradientAnimationDelay = 500,
+                drawStyle = DrawStyle.Stroke(width = 2.dp),
+            )
+        )
+    }
+
+    // Update only the list, not the entire line object
+    LaunchedEffect(values.toList()) {
+        line.value = line.value.copy(values = values.toList())
+    }
+
+    Text("GPIO: ${analogInput.pin} | V: ${analogInput.value}")
+
+    LineChart(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .padding(bottom = 16.dp),
+        data = listOf(line.value), // Use the mutable state line object
+        animationMode = AnimationMode.OneByOne, // Smooth sequential animation
+        labelHelperProperties = LabelHelperProperties(false)
+    )
 }
 
 
@@ -292,11 +437,13 @@ fun SettingsSection(settings: Map<String, Int>?, onSave: (Map<String, Int>) -> U
                                     TextField(
                                         value = editableSettings[key].toString(),
                                         onValueChange = { newValue ->
-                                            newValue.toIntOrNull()?.let { editableSettings[key] = it }
+                                            newValue.toIntOrNull()
+                                                ?.let { editableSettings[key] = it }
                                         },
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
+
                                 else -> {
                                     Text("Unsupported type", modifier = Modifier.weight(1f))
                                 }
