@@ -147,7 +147,7 @@ fun DashboardScreen() {
                     e.printStackTrace() // Handle exceptions (e.g., network issues)
                 }
             }
-            kotlinx.coroutines.delay(1000) // Update every 5 seconds
+            kotlinx.coroutines.delay(5000) // Update every 5 seconds
         }
     }
 
