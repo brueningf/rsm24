@@ -32,7 +32,9 @@ module := ?
 settings ::= {
   "tank-a-capacity": 1000,
   "tank-a-threshold-1": 10,
-  "tank-a-threshold-2": 100
+  "tank-a-threshold-2": 100,
+  "pump-upper-bound": 0.85,
+  "pump-lower-bound": 0.45,
 }
 
 main:
@@ -56,6 +58,7 @@ main:
 
   log.info "loading module"
 
+  // inputs, output[pin, default=0], analog-ins, pulse counter
   module = Module "0" [15, 16, 38] [[8, 1], 9, 10, 11, 12, 13, [17, 1], [18, 1]] [4, 5, 6, 7] []
   pump-active := false
 
@@ -70,9 +73,9 @@ main:
         level := remote-module["analog-inputs"][0]
         output := remote-module["outputs"][1]
 
-        if level["value"] <= 0.35:
+        if level["value"] <= settings["pump-lower-bound"]:
           pump-active = false
-        else if level["value"] >= 0.85:
+        else if level["value"] >= settings["pump-upper-bound"]:
           pump-active = true
 
         drive-pump-exception := catch:
@@ -85,9 +88,10 @@ main:
             if output["value"] != 0:
               print "deactivate pump"
               response := client.post-json {"index": 1, "value": 0 } --host=remote-module["ip"] --path="/api/output"
+              sleep (Duration --s=30)
         if drive-pump-exception:
           print "failed driving pump"
-      sleep --ms=5000
+      sleep --ms=2000
 
   task::
     while true:
@@ -185,9 +189,9 @@ handle_api request/http.Request writer/http.ResponseWriter:
         writer.out.write "Method not allowed"
   else if action == "rmt" and request.method == http.POST and id:
     decoded := json.decode-stream request.body
+    decoded["manual"] = 1
     // todo: validate decoded
     log.info "Received JSON: $decoded"
-    decoded["manual"] = 1
     if id == "0":
       module.outputs[decoded["index"]].set decoded["value"]
     else:
