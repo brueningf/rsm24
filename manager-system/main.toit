@@ -61,6 +61,7 @@ main:
 
   task:: run
 
+  // auto pump
   task::
     while true:
       if modules.contains "1" and network:

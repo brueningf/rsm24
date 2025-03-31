@@ -15,8 +15,10 @@ CAPTIVE_PORTAL_PASSWORD ::= "12345678"
 network := ?
 client := ?
 module := Module "1" [2,35,39,36,33] [4,13,14,27,26,25] [32,34] []
+//module := Module "1" [2,35,39,36,33] [4,13] [32,34] []
 
 main:
+  // starting procedure
   log.info "starting"
   signal := gpio.Pin 16 --output
   signal.set 1
@@ -32,23 +34,10 @@ main:
   pin.close
   signal.close
   
+  // running procedure
   connect-to-ap
-  task --background::
-    while true:
-      exception := catch:
-        manual-pump := gpio.Pin 33 --input
-        timeout := Time.now + (Duration --s=10)
-        time := Duration --m=0
-        manual-pump.do:
-          if Time.now > timeout:
-            break
-          time += Duration --m=1
-        manual-pump.close
-        module.outputs[1].set 1 --manual
-        sleep (time)
-        module.outputs[1].set 0 --manual
-        module.outputs[1].manual = false
-      sleep --ms=1000
+
+  module.add-weather 21 22
 
   task --background::
     while true:
@@ -76,12 +65,18 @@ handle_http_request request/http.Request writer/http.ResponseWriter:
       if resource == "/api/output" and request.method == "POST":
         decoded := json.decode-stream request.body
         log.info "Received JSON: $decoded"
+        output := module.outputs[decoded["index"]]
+
         if decoded.contains "manual":
-          module.outputs[decoded["index"]].set decoded["value"] --manual
-          if module.outputs[decoded["index"]].manual:
-            module.outputs[decoded["index"]].manual = false
+          output.force-set decoded["value"]
         else if not module.outputs[decoded["index"]].manual:
-          module.outputs[decoded["index"]].set decoded["value"]
+          output.set decoded["value"]
+
+        log.info "Updated module output"
+
+        log.info (output.to-map).stringify
+        log.info "Manual: $output.manual"
+
         write-headers writer 200
         writer.out.write "Success"
   
@@ -121,6 +116,7 @@ send-update:
       response := client.post-json module.to-map --host="200.200.200.1" --path="/api/modules/1"
       log.info "$response.status-code"
     if exception:
+      log.info exception
       log.warn "Failed to update state"
       log.warn "Retrying in 10 seconds"
       connect-to-ap

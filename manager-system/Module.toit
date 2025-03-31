@@ -3,6 +3,7 @@ import gpio.adc
 import encoding.json
 import log
 import net
+import ..libs.weather
 
 class Module:
   id /string := ?
@@ -11,6 +12,7 @@ class Module:
   outputs /List := []
   analog-inputs /List := []
   pulse-counters /List := []
+  weather /any := null
 
   constructor id_/string _inputs/List _outputs/List _analog-inputs/List _pulse-counters/List:
     id = id_
@@ -30,6 +32,13 @@ class Module:
     analog-inputs.do:
       it.read
 
+  add-weather sda/int scl/int:
+    weather = Weather sda scl
+
+  read-weather:
+    if weather and weather.available:
+      weather.read
+
   stringify -> string:
     return json.stringify to-map
 
@@ -40,9 +49,11 @@ class Module:
       "inputs": inputs.map: it.to-map,
       "outputs": outputs.map: it.to-map,
       "analog-inputs": analog-inputs.map: it.to-map,
+      "weather": weather.to-map
     }
 
 abstract class GenericPin:
+  type /string := "generic"
   pin /any := 0
   value /int := 0
 
@@ -50,21 +61,25 @@ abstract class GenericPin:
     if pin is int:
       return {
         "pin": pin,
-        "value": value
+        "value": value,
+        "type": type
       }
     else if pin is gpio.Pin:
       return {
         "pin": pin.num,
-        "value": value
+        "value": value,
+        "type": type
       }
     else:
       return {
-        "value": value
+        "value": value,
+        "type": type
       }
 
 class Input extends GenericPin:
   constructor _pin/int:
     pin = _pin
+    type = "input"
 
   read -> int:
     p := gpio.Pin pin --input
@@ -75,21 +90,23 @@ class Input extends GenericPin:
 class Output extends GenericPin:
   pin /gpio.Pin := ?
   manual /bool := false
+
   constructor _pin/int _value/int=0:
     pin = gpio.Pin _pin --output
-    value = _value
-    pin.set value
-
-  set _value/int --manual:
-    manual = true
+    type = "output"
     value = _value
     pin.set value
 
   set _value/int:
-    if manual: return
+    if manual:
+      return
     value = _value
     pin.set value
 
+  force-set _value/int:
+    manual = not manual
+    value = _value
+    pin.set value
 
 
 class AnalogInput extends GenericPin:

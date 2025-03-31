@@ -2,6 +2,7 @@ import i2c
 import gpio
 import bmp280
 import aht20
+import log
 
 class Weather:
   sda/int
@@ -12,6 +13,13 @@ class Weather:
   available/bool := true
 
   constructor .sda/int .scl/int:
+
+  to-map -> Map:
+    return {
+      "temperature": temperature,
+      "humidity": humidity,
+      "pressure": pressure,
+    }
 
   read:
     if not available:
@@ -39,19 +47,19 @@ class Weather:
           temperature = driver.read-temperature
           pressure = driver.read-pressure / 100
         if bmp280-exception:
-          print "Weather: NO BMP280"
+          log.info "Weather: NO BMP280"
     
         aht20-exception := catch:
           device := bus.device aht20.I2C-ADDRESS
           driver := aht20.Driver device
           humidity = driver.read-humidity
         if aht20-exception:
-          print "Weather: NO AHT20"
+          log.info "Weather: NO AHT20"
       finally:
         bus.close
         SDA.close
         SCL.close
     finally:
-      print "Weather: Read"
+      log.info "Weather: Read"
 
 
