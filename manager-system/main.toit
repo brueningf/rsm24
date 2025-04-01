@@ -25,10 +25,6 @@ INDEX ::= """
 <html>
 """
 
-modules := Map
-network := ?
-module := ?
-
 settings ::= {
   "tank-a-capacity": 1000,
   "tank-a-threshold-1": 10,
@@ -36,6 +32,11 @@ settings ::= {
   "pump-upper-bound": 850,
   "pump-lower-bound": 450,
 }
+
+module ::= ?
+
+modules := Map
+network := ?
 
 main:
   log.info "starting"
@@ -126,16 +127,16 @@ handle_http_request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
     resource := query.resource
     if resource == "/":
-        writer.headers.set "Content-Type" "text/html"
         write-headers writer 200
+        writer.headers.set "Content-Type" "text/html"
         writer.out.write INDEX
 
     else if resource.starts_with "/api": 
       handle_api request writer
   
     else:
-      writer.headers.set "Content-Type" "text/plain"
       write-headers writer 404
+      writer.headers.set "Content-Type" "text/plain"
       writer.out.write "Not found: $resource"
   
     writer.close
@@ -160,7 +161,6 @@ handle_api request/http.Request writer/http.ResponseWriter:
   if action == "modules":
     if request.method == http.GET:
       // Get all modules
-      writer.headers.set "Content-Type" "application/json"
       write-headers writer 200
       writer.out.write (json.encode modules.values)
     else if request.method == http.POST and not id:
@@ -171,7 +171,6 @@ handle_api request/http.Request writer/http.ResponseWriter:
         writer.out.write "Conflict"
       else:
         modules[decoded["id"]] = decoded
-        writer.headers.set "Content-Type" "application/json"
         write-headers writer 201
         writer.out.write "Success"
     else if request.method == http.POST and id:
@@ -181,7 +180,6 @@ handle_api request/http.Request writer/http.ResponseWriter:
 
       if modules.contains id:
         modules[id] = decoded
-        writer.headers.set "Content-Type" "application/json"
         write-headers writer 200
         writer.out.write "Success"
       else:
@@ -210,7 +208,6 @@ handle_api request/http.Request writer/http.ResponseWriter:
   else if action == "settings":
     if request.method == http.GET:
       // Get all settings
-      writer.headers.set "Content-Type" "application/json"
       write-headers writer 200
       writer.out.write (json.encode settings)
     else if request.method == http.POST:
@@ -233,7 +230,6 @@ handle_api request/http.Request writer/http.ResponseWriter:
       settings.keys.do:
         settings[it] = settings-bucket.get it --init=: settings[it]
 
-      writer.headers.set "Content-Type" "application/json"
       write-headers writer 200
       writer.out.write "Success"
     else:
@@ -242,7 +238,6 @@ handle_api request/http.Request writer/http.ResponseWriter:
   else if action == "interrupt":
       containers.images
 
-      writer.headers.set "Content-Type" "application/json"
       write-headers writer 200
       writer.out.write "Success"
   else:
@@ -250,5 +245,6 @@ handle_api request/http.Request writer/http.ResponseWriter:
     writer.out.write "Not found"
 
 write-headers writer/http.ResponseWriter status/int:
+  writer.headers.set "Content-Type" "application/json"
   writer.headers.set "Connection" "close"
   writer.write_headers status
