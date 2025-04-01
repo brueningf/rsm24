@@ -74,6 +74,7 @@ data class Module(
     @SerializedName("inputs") val inputs: List<ModuleInput>,
     @SerializedName("outputs") val outputs: List<ModuleOutput>,
     @SerializedName("analog-inputs") val analogInputs: List<ModuleAnalogInput>,
+    @SerializedName("weather") val weather: WeatherObject
 )
 
 data class ModuleInput(
@@ -89,6 +90,12 @@ data class ModuleOutput(
 data class ModuleAnalogInput(
     @SerializedName("pin") val pin: Int,
     @SerializedName("value") val value: String
+)
+
+data class WeatherObject(
+    @SerializedName("temperature") val temperature: String,
+    @SerializedName("humidity") val humidity: String,
+    @SerializedName("pressure") val pressure: String,
 )
 
 data class Settings(
@@ -254,6 +261,20 @@ fun ModuleCard(module: Module) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Module ID: ${module.id}", style = MaterialTheme.typography.titleMedium)
+            Column {
+                Text(
+                    text = "Temperature: ${module.weather.temperature}°C",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Humidity: ${module.weather.humidity}%",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Pressure: ${module.weather.pressure} hPa",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
 
             Column(
                 modifier = Modifier.fillMaxWidth(),

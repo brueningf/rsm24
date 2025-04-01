@@ -60,6 +60,6 @@ class Weather:
         SDA.close
         SCL.close
     finally:
-      log.info "Weather: Read"
+      log.info "Weather: T: $temperature, H: $humidity, P: $pressure"
 
 

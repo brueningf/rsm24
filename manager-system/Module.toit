@@ -12,9 +12,9 @@ class Module:
   outputs /List := []
   analog-inputs /List := []
   pulse-counters /List := []
-  weather /any := null
+  weather /Weather := ?
 
-  constructor id_/string _inputs/List _outputs/List _analog-inputs/List _pulse-counters/List:
+  constructor id_/string _inputs/List _outputs/List _analog-inputs/List _pulse-counters/List --sda=47 --scl=48:
     id = id_
     _inputs.do:
       inputs.add (Input it)
@@ -26,14 +26,13 @@ class Module:
     _analog-inputs.do:
       analog-inputs.add (AnalogInput it)
 
+    weather = Weather sda scl
+
   update-state:
     inputs.do:
       it.read
     analog-inputs.do:
       it.read
-
-  add-weather sda/int scl/int:
-    weather = Weather sda scl
 
   read-weather:
     if weather and weather.available:

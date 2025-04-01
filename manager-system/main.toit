@@ -33,18 +33,16 @@ settings ::= {
   "tank-a-capacity": 1000,
   "tank-a-threshold-1": 10,
   "tank-a-threshold-2": 100,
-  "pump-upper-bound": 0.85,
-  "pump-lower-bound": 0.45,
+  "pump-upper-bound": 850,
+  "pump-lower-bound": 450,
 }
 
 main:
   log.info "starting"
-  sleep --ms=10000
+  sleep --ms=5000
   pin := gpio.Pin 0 --input --pull-up
   if pin.get == 0: 
     led := gpio.Pin 2 --output
-    led.set 1
-    sleep --ms=2000
     led.set 0
     sleep --ms=2000
     return
@@ -73,9 +71,9 @@ main:
         level := remote-module["analog-inputs"][0]
         output := remote-module["outputs"][1]
 
-        if level["value"] <= settings["pump-lower-bound"]:
+        if level["value"] <= (settings["pump-lower-bound"] / 1000.0):
           pump-active = false
-        else if level["value"] >= settings["pump-upper-bound"]:
+        else if level["value"] >= (settings["pump-upper-bound"] / 1000.0):
           pump-active = true
 
         drive-pump-exception := catch:
@@ -100,6 +98,11 @@ main:
       module.update-state
       modules["0"] = module.to-map
       sleep --ms=1000
+
+  task --background::
+    while true:
+      module.read-weather
+      sleep --ms=5000
  
 run:
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"

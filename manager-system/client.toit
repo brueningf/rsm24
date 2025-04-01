@@ -14,7 +14,7 @@ CAPTIVE_PORTAL_PASSWORD ::= "12345678"
 
 network := ?
 client := ?
-module := Module "1" [2,35,39,36,33] [4,13,14,27,26,25] [32,34] []
+module := Module "1" [2,35,39,36,33] [4,13,14,27,26,25] [32,34] [] --sda=21 --scl=22
 //module := Module "1" [2,35,39,36,33] [4,13] [32,34] []
 
 main:
@@ -36,8 +36,6 @@ main:
   
   // running procedure
   connect-to-ap
-
-  module.add-weather 21 22
 
   task --background::
     while true:
@@ -72,14 +70,8 @@ handle_http_request request/http.Request writer/http.ResponseWriter:
         else if not module.outputs[decoded["index"]].manual:
           output.set decoded["value"]
 
-        log.info "Updated module output"
-
-        log.info (output.to-map).stringify
-        log.info "Manual: $output.manual"
-
         write-headers writer 200
         writer.out.write "Success"
-  
     else:
       write-headers writer 404
       writer.out.write "Not found: $resource"
