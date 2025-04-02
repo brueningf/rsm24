@@ -15,6 +15,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -24,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +73,9 @@ object SettingsRepository {
 
 @Composable
 fun SettingsSection(settings: Map<String, Int>?, onSave: (Map<String, Int>) -> Unit) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
     // State for local edits
     val editableSettings = remember { mutableStateMapOf<String, Int>() }
 
@@ -80,75 +88,91 @@ fun SettingsSection(settings: Map<String, Int>?, onSave: (Map<String, Int>) -> U
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(4.dp)
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) } // Attach SnackbarHost
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier.padding(paddingValues),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text("Device Settings", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(12.dp))
-                UpdateRateDropdown()
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("Device Settings", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    UpdateRateDropdown(snackbarHostState)
+                }
             }
-        }
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(4.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text("Remote Settings", style = MaterialTheme.typography.titleMedium)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("Remote Settings", style = MaterialTheme.typography.titleMedium)
 
-                if (settings == null) {
-                    Text("Loading remote settings...")
-                } else {
-                    Column {
-                        editableSettings.forEach { (key, value) ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(key, modifier = Modifier.weight(2f))
-                                when (value) {
-                                    is Int -> {
-                                        TextField(
-                                            value = editableSettings[key].toString(),
-                                            onValueChange = { newValue ->
-                                                newValue.toIntOrNull()
-                                                    ?.let { editableSettings[key] = it }
-                                            },
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
+                    if (settings == null) {
+                        Text("Loading remote settings...")
+                    } else {
+                        Column {
+                            editableSettings.forEach { (key, value) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(key, modifier = Modifier.weight(2f))
+                                    when (value) {
+                                        is Int -> {
+                                            TextField(
+                                                value = editableSettings[key].toString(),
+                                                onValueChange = { newValue ->
+                                                    newValue.toIntOrNull()
+                                                        ?.let { editableSettings[key] = it }
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
 
-                                    else -> {
-                                        Text("Unsupported type", modifier = Modifier.weight(1f))
+                                        else -> {
+                                            Text("Unsupported type", modifier = Modifier.weight(1f))
+                                        }
                                     }
                                 }
                             }
-                        }
-                        Button(
-                            onClick = { onSave(editableSettings) },
-                            modifier = Modifier
-                                .padding(top = 16.dp)
-                                .align(Alignment.End)
-                        ) {
-                            Text("Save Changes")
+                            Button(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        try {
+                                            onSave(editableSettings) // Save settings
+                                            snackbarHostState.showSnackbar("Settings saved!", duration = SnackbarDuration.Short)
+                                        } catch (e: Exception) {
+                                            snackbarHostState.showSnackbar("Failed to save settings!", duration = SnackbarDuration.Short)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .padding(top = 16.dp)
+                                    .align(Alignment.End)
+                            ) {
+                                Text("Save Changes")
+                            }
                         }
                     }
                 }
             }
-        }
 
+        }
     }
 }
 
 @Composable
-fun UpdateRateDropdown() {
+fun UpdateRateDropdown(snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val refreshRate by SettingsRepository.getRefreshRateFlow(context)
         .collectAsState(initial = 5000L)
@@ -170,7 +194,13 @@ fun UpdateRateDropdown() {
 
                         // Save new update rate
                         CoroutineScope(Dispatchers.IO).launch {
-                            SettingsRepository.saveRefreshRate(context, rate)
+
+                            try {
+                                SettingsRepository.saveRefreshRate(context, rate)
+                                snackbarHostState.showSnackbar("Settings saved!", duration = SnackbarDuration.Short)
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Failed to save settings!", duration = SnackbarDuration.Short)
+                            }
                         }
                     }
                 )
