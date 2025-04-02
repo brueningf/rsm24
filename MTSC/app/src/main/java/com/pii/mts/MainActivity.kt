@@ -74,7 +74,9 @@ data class Module(
     @SerializedName("inputs") val inputs: List<ModuleInput>,
     @SerializedName("outputs") val outputs: List<ModuleOutput>,
     @SerializedName("analog-inputs") val analogInputs: List<ModuleAnalogInput>,
-    @SerializedName("weather") val weather: WeatherObject
+    @SerializedName("weather") val weather: WeatherObject,
+    @SerializedName("online") var online: Boolean,
+    @SerializedName("last-seen") val lastSeen: String
 )
 
 data class ModuleInput(
@@ -152,6 +154,9 @@ fun DashboardScreen() {
                     modulesState.addAll(modules)
                 } catch (e: Exception) {
                     e.printStackTrace() // Handle exceptions (e.g., network issues)
+                    modulesState.forEach { module ->
+                        module.online = false
+                    }
                 }
             }
             kotlinx.coroutines.delay(5000) // Update every 5 seconds
@@ -260,7 +265,17 @@ fun ModuleCard(module: Module) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Module ID: ${module.id}", style = MaterialTheme.typography.titleMedium)
+            Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Module ID: ${module.id}", style = MaterialTheme.typography.titleMedium, color = Color.Black)
+
+                // Circle indicator for on/off state
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(if (module.online) Color.Green else Color.Gray) // Green if ON, Gray if OFF
+                )
+            }
             Column {
                 Text(
                     text = "Temperature: ${module.weather.temperature}°C",
