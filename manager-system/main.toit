@@ -9,6 +9,7 @@ import system.storage
 import system.containers
 import ..libs.utils
 
+import .ManagerAPI
 import .Module
 
 CAPTIVE_PORTAL_SSID     ::= "mywifi"
@@ -33,8 +34,7 @@ settings ::= {
   "pump-lower-bound": 450,
 }
 
-module ::= ?
-
+module := ?
 modules := Map
 network := ?
 
@@ -64,7 +64,7 @@ main:
   task:: run
 
   // auto pump
-  task::
+  task --background::
     while true:
       if modules.contains "1" and network:
         client := http.Client network
@@ -92,18 +92,33 @@ main:
           print "failed driving pump"
       sleep --ms=2000
 
-  task::
+  task --background::
     while true:
-      trigger-heartbeat 2
-      // update state of this station
-      module.update-state
-      modules["0"] = module.to-map
+      exception := catch:
+        trigger-heartbeat 2
+        // update state of this station
+        module.update-state
+        modules["0"] = module.to-map
+        check-modules
+      if exception:
+        log.error "Exception: ModuleUpdate - $exception"
       sleep --ms=1000
 
   task --background::
     while true:
       module.read-weather
       sleep --ms=5000
+
+check-modules:
+  now := Time.now
+  modules.do: 
+    m := modules[it]
+    if m["id"] != "0":
+      if ((Time.parse m["last-seen"]).plus --s=10) < now:
+        m["online"] = false
+      if ((Time.parse m["last-seen"]).plus --m=1) < now:
+        log.info "Removing module " + m["id"]
+        modules.remove m["id"]
  
 run:
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"
@@ -112,139 +127,32 @@ run:
         --password=CAPTIVE_PORTAL_PASSWORD
     log.info "wifi established"      
     run_http
+    log.info "wifi closing"
 
 run_http:
   socket := network.tcp_listen 80
   server := http.Server --max-tasks=3
-  try:
-    server.listen socket:: | request writer |
+  server.listen socket:: | request writer |
+    exception := catch:
       handle_http_request request writer
-  finally:
-    socket.close
+    if exception == "Interrupt":
+      socket.close
+    else if exception:
+      log.error "Exception: HTTP - $exception"
+      
+      writer.headers.set "Content-Type" "text/plain"
+      writer.out.write "Internal server error"
+      writer.close
   unreachable
 
 handle_http_request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
     resource := query.resource
     if resource == "/":
-        write-headers writer 200
-        writer.headers.set "Content-Type" "text/html"
-        writer.out.write INDEX
-
+        write-response writer 200 INDEX "text/html"
     else if resource.starts_with "/api": 
-      handle_api request writer
-  
+      handle_api request writer settings modules module network
     else:
-      write-headers writer 404
-      writer.headers.set "Content-Type" "text/plain"
-      writer.out.write "Not found: $resource"
-  
+      write-response writer 404 "Not found" "text/plain"
     writer.close
 
-handle_api request/http.Request writer/http.ResponseWriter:
-  query := url.QueryString.parse request.path
-  resourceList := query.resource.split "/"
-  action := resourceList[2]
-  id := null
-  subAction := null
-
-  log.info "API resource: $resourceList"
-  log.info "API action: $action"
-
-  if resourceList.size > 3:
-    id = resourceList[3]
-    log.info "API id: $id"
-  else if resourceList.size > 4:
-    subAction = resourceList[4]
-    log.info "API subAction: $subAction"
-
-  if action == "modules":
-    if request.method == http.GET:
-      // Get all modules
-      write-headers writer 200
-      writer.out.write (json.encode modules.values)
-    else if request.method == http.POST and not id:
-      // Add a new module
-      decoded := json.decode-stream request.body
-      if modules.contains decoded["id"]:
-        write-headers writer 409
-        writer.out.write "Conflict"
-      else:
-        modules[decoded["id"]] = decoded
-        write-headers writer 201
-        writer.out.write "Success"
-    else if request.method == http.POST and id:
-      // Update a specific module
-      decoded := json.decode-stream request.body
-      log.info "Updating module $id"
-
-      if modules.contains id:
-        modules[id] = decoded
-        write-headers writer 200
-        writer.out.write "Success"
-      else:
-        write-headers writer 404
-        writer.out.write "Module not found"
-    else:
-        write-headers writer 405
-        writer.out.write "Method not allowed"
-  else if action == "rmt" and request.method == http.POST and id:
-    decoded := json.decode-stream request.body
-    decoded["manual"] = 1
-    // todo: validate decoded
-    log.info "Received JSON: $decoded"
-    if id == "0":
-      module.outputs[decoded["index"]].set decoded["value"]
-    else:
-      remote-module := modules[id]
-
-      // Send command to module
-      client := http.Client network
-      response := client.post-json decoded --host=remote-module["ip"] --path="/api/output"
-      client.close
-    
-    write-headers writer 200
-    writer.out.write "Success"
-  else if action == "settings":
-    if request.method == http.GET:
-      // Get all settings
-      write-headers writer 200
-      writer.out.write (json.encode settings)
-    else if request.method == http.POST:
-      // Update settings
-      decoded := json.decode-stream request.body
-      log.info "Decoded: $decoded"
-
-      settings-bucket := storage.Bucket.open --flash "settings"
-      exception := catch:
-        decoded.keys.do:
-          log.info "Updating setting: $it, $decoded[it]"
-          settings-bucket[it] = decoded[it]
-      if exception:
-        log.error "Failed to update settings"
-        settings-bucket.close
-        write-headers writer 500
-        writer.out.write "Failed"
-        return
-
-      settings.keys.do:
-        settings[it] = settings-bucket.get it --init=: settings[it]
-
-      write-headers writer 200
-      writer.out.write "Success"
-    else:
-      write-headers writer 405
-      writer.out.write "Method not allowed"
-  else if action == "interrupt":
-      containers.images
-
-      write-headers writer 200
-      writer.out.write "Success"
-  else:
-    write-headers writer 404
-    writer.out.write "Not found"
-
-write-headers writer/http.ResponseWriter status/int:
-  writer.headers.set "Content-Type" "application/json"
-  writer.headers.set "Connection" "close"
-  writer.write_headers status

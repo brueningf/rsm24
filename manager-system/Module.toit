@@ -8,11 +8,13 @@ import ..libs.weather
 class Module:
   id /string := ?
   ip /any := null
+  online /bool := true
   inputs /List := []
   outputs /List := []
   analog-inputs /List := []
   pulse-counters /List := []
   weather /Weather := ?
+  last-seen /Time := ?
 
   constructor id_/string _inputs/List _outputs/List _analog-inputs/List _pulse-counters/List --sda=47 --scl=48:
     id = id_
@@ -27,6 +29,8 @@ class Module:
       analog-inputs.add (AnalogInput it)
 
     weather = Weather sda scl
+
+    last-seen = Time.now
 
   update-state:
     inputs.do:
@@ -48,7 +52,9 @@ class Module:
       "inputs": inputs.map: it.to-map,
       "outputs": outputs.map: it.to-map,
       "analog-inputs": analog-inputs.map: it.to-map,
-      "weather": weather.to-map
+      "weather": weather.to-map,
+      "online": online.stringify,
+      "last-seen": last-seen.stringify
     }
 
 abstract class GenericPin:
@@ -61,18 +67,12 @@ abstract class GenericPin:
       return {
         "pin": pin,
         "value": value,
-        "type": type
       }
-    else if pin is gpio.Pin:
-      return {
-        "pin": pin.num,
-        "value": value,
-        "type": type
-      }
+    else if type == "output":
+      return to-map
     else:
       return {
         "value": value,
-        "type": type
       }
 
 class Input extends GenericPin:
@@ -106,6 +106,13 @@ class Output extends GenericPin:
     manual = not manual
     value = _value
     pin.set value
+ 
+  to-map:
+      return {
+        "pin": pin.num,
+        "value": value,
+        "manual": manual,
+      }
 
 
 class AnalogInput extends GenericPin:

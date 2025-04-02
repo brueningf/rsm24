@@ -40,6 +40,7 @@ main:
   task --background::
     while true:
       trigger-heartbeat 16
+
   task:: send-update
   task:: run-http
 
