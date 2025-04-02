@@ -262,7 +262,7 @@ fun AnalogInputGraph(analogInput: ModuleAnalogInput) {
     // Append values without recomposition
     LaunchedEffect(analogInput.value.toDouble()) {
         values.add(analogInput.value.toDouble())
-        if (values.size > 10) values.removeAt(0)
+        if (values.size > 50) values.removeAt(0)
     }
 
     // Use a mutable state for Line to avoid re-creating the list

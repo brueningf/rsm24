@@ -154,11 +154,11 @@ fun UpdateRateDropdown() {
 
     // Dropdown for selecting update rate
     var expanded by remember { mutableStateOf(false) }
-    val refreshRates = listOf(1000, 2000, 3000, 4000, 5000).map { it.milliseconds }
+    val refreshRates = listOf(500, 1000, 2000, 3000, 4000, 5000).map { it.milliseconds }
 
     Box {
         Button(onClick = { expanded = true }) {
-            Text("Refresh Rate: ${refreshRate}")
+            Text("Refresh Rate: $refreshRate")
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             refreshRates.forEach { rate ->

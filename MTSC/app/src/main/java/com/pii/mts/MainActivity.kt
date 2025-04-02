@@ -114,7 +114,7 @@ fun DashboardScreen() {
                 }
             }
 
-            kotlinx.coroutines.delay(refreshRate) // Update every 5 seconds
+            kotlinx.coroutines.delay(refreshRate)
         }
     }
 
