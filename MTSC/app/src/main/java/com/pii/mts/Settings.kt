@@ -108,8 +108,9 @@ fun SettingsSection(settings: Map<String, Int>?, onSave: (Map<String, Int>) -> U
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(key, modifier = Modifier.weight(2f))
                                 when (value) {
