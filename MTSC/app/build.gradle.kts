@@ -60,6 +60,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
+    // preferences
+    implementation("androidx.datastore:datastore-preferences:1.1.4")
+
     // graphs
     implementation ("io.github.ehsannarmani:compose-charts:0.1.2")
 

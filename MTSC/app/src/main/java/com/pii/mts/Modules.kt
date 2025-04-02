@@ -1,0 +1,301 @@
+import androidx.compose.animation.core.EaseInOutCubic
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.google.gson.annotations.SerializedName
+import com.pii.mts.ApiClient
+import ir.ehsannarmani.compose_charts.LineChart
+import ir.ehsannarmani.compose_charts.models.AnimationMode
+import ir.ehsannarmani.compose_charts.models.DrawStyle
+import ir.ehsannarmani.compose_charts.models.LabelHelperProperties
+import ir.ehsannarmani.compose_charts.models.Line
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+data class Module(
+    @SerializedName("id") val id: Int,
+    @SerializedName("inputs") val inputs: List<ModuleInput>,
+    @SerializedName("outputs") val outputs: List<ModuleOutput>,
+    @SerializedName("analog-inputs") val analogInputs: List<ModuleAnalogInput>,
+    @SerializedName("weather") val weather: WeatherObject,
+    @SerializedName("online") var online: Boolean,
+    @SerializedName("last-seen") val lastSeen: String
+)
+
+data class ModuleInput(
+    @SerializedName("pin") val pin: Int,
+    @SerializedName("value") val value: String
+)
+
+data class ModuleOutput(
+    @SerializedName("pin") val pin: Int,
+    @SerializedName("value") var value: String,
+    @SerializedName("manual") val manual: Boolean,
+)
+
+data class ModuleAnalogInput(
+    @SerializedName("pin") val pin: Int,
+    @SerializedName("value") val value: String
+)
+
+data class WeatherObject(
+    @SerializedName("temperature") val temperature: String,
+    @SerializedName("humidity") val humidity: String,
+    @SerializedName("pressure") val pressure: String,
+)
+
+// Modules Section
+@Composable
+fun ModulesSection(modules: List<Module>) {
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()), // Enables scrolling
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (modules.isEmpty()) {
+            Text(
+                text = "Loading modules...",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            for (module in modules) {
+                ModuleCard(module)
+            }
+        }
+    }
+}
+
+// Individual Module Card
+@Composable
+fun ModuleCard(module: Module) {
+    val coroutineScope = rememberCoroutineScope() // Use inside the composable
+
+    Card(
+        modifier = Modifier
+            .fillMaxSize()
+            .fillMaxHeight(),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Module ID: ${module.id}", style = MaterialTheme.typography.titleMedium, color = Color.Black)
+
+                // Circle indicator for on/off state
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(if (module.online) Color.Green else Color.Gray) // Green if ON, Gray if OFF
+                )
+            }
+            Column {
+                Text(
+                    text = "Temperature: ${module.weather.temperature}°C",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Humidity: ${module.weather.humidity}%",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Pressure: ${module.weather.pressure} hPa",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Space between inputs
+            ) {
+                Text("Inputs:")
+                for ((index, input) in module.inputs.withIndex()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 5.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+
+
+                    ) {
+                        Text("${index + 1} | ${input.pin} (V: ${input.value})")
+
+                        // Circle indicator for on/off state
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(if (input.value == "1") Color.Green else Color.Gray) // Green if ON, Gray if OFF
+                        )
+                    }
+                }
+            }
+
+            // ADCs
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Space between inputs
+            ) {
+                Text("Analog Inputs:")
+                for (analogInput in module.analogInputs) {
+                    AnalogInputGraph(analogInput)
+                }
+            }
+
+            // Outputs
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Space between inputs
+            ) {
+                Text("Outputs:")
+                for ((index, output) in module.outputs.withIndex()) {
+                    OutputToggle(output, index, module)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OutputToggle(output: ModuleOutput, index: Int, module: Module) {
+    var active by remember { mutableStateOf(output.value == "1") }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("${index + 1} | GPIO: ${output.pin} | Val: ${output.value}")
+
+        if (output.manual) {
+            Box(
+                modifier = Modifier.border(width = 1.dp, color = Color.Red)
+            ) {
+                Text(text = "F", fontWeight = FontWeight.Bold, color = Color.Red, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+            }
+        }
+
+        Button(
+            onClick = {
+                active = !active // Toggle state to trigger recomposition
+
+                // Call the API to toggle the output
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val toggleRequest = mapOf(
+                            "index" to index,
+                            "value" to if (active) 1 else 0 // Toggle logic
+                        )
+
+                        // Update state to reflect the API request
+                        output.value = if (active) "1" else "0"
+
+                        ApiClient.api.toggleModuleOutput(module.id, toggleRequest)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (active) Color.Green else Color.Red, // Change color based on state
+                contentColor = Color.White // Text color
+            ),
+            modifier = Modifier.widthIn(min = 100.dp) // Set minimum width
+        )
+        {
+            Text(if (active) "ON" else "OFF")
+        }
+    }
+}
+
+@Composable
+fun AnalogInputGraph(analogInput: ModuleAnalogInput) {
+    val values = remember { mutableStateListOf<Double>() }
+
+    // Append values without recomposition
+    LaunchedEffect(analogInput.value.toDouble()) {
+        values.add(analogInput.value.toDouble())
+        if (values.size > 10) values.removeAt(0)
+    }
+
+    // Use a mutable state for Line to avoid re-creating the list
+    val line = remember {
+        mutableStateOf(
+            Line(
+                label = "V",
+                values = values.toList(),
+                color = SolidColor(Color(0xFF23af92)),
+                firstGradientFillColor = Color(0xFF2BC0A1).copy(alpha = .5f),
+                secondGradientFillColor = Color.Transparent,
+                strokeAnimationSpec = tween(1000, easing = EaseInOutCubic),
+                gradientAnimationDelay = 500,
+                drawStyle = DrawStyle.Stroke(width = 2.dp),
+            )
+        )
+    }
+
+    // Update only the list, not the entire line object
+    LaunchedEffect(values.toList()) {
+        line.value = line.value.copy(values = values.toList())
+    }
+
+    Text("GPIO: ${analogInput.pin} | V: ${analogInput.value}")
+
+    LineChart(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .padding(bottom = 16.dp),
+        data = listOf(line.value), // Use the mutable state line object
+        animationMode = AnimationMode.OneByOne, // Smooth sequential animation
+        labelHelperProperties = LabelHelperProperties(false)
+    )
+}
+
