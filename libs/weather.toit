@@ -48,6 +48,7 @@ class Weather:
           pressure = driver.read-pressure / 100
         if bmp280-exception:
           log.info "Weather: NO BMP280"
+          available = false
     
         aht20-exception := catch:
           device := bus.device aht20.I2C-ADDRESS
