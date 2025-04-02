@@ -108,6 +108,7 @@ send-update:
       module.update-state
       response := client.post-json module.to-map --host="200.200.200.1" --path="/api/modules/1"
       log.info "$response.status-code"
+      module.read-weather
     if exception:
       log.info exception
       log.warn "Failed to update state"
