@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.font.FontWeight
 import ir.ehsannarmani.compose_charts.LineChart
 import ir.ehsannarmani.compose_charts.models.AnimationMode
 import ir.ehsannarmani.compose_charts.models.DrawStyle
@@ -86,7 +87,8 @@ data class ModuleInput(
 
 data class ModuleOutput(
     @SerializedName("pin") val pin: Int,
-    @SerializedName("value") var value: String
+    @SerializedName("value") var value: String,
+    @SerializedName("manual") val manual: Boolean,
 )
 
 data class ModuleAnalogInput(
@@ -356,6 +358,14 @@ fun OutputToggle(output: ModuleOutput, index: Int, module: Module) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("${index + 1} | GPIO: ${output.pin} | Val: ${output.value}")
+
+        if (output.manual) {
+            Box(
+                modifier = Modifier.border(width = 1.dp, color = Color.Red)
+            ) {
+                Text(text = "F", fontWeight = FontWeight.Bold, color = Color.Red, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+            }
+        }
 
         Button(
             onClick = {
