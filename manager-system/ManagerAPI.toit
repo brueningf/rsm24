@@ -61,7 +61,7 @@ handle_api request/http.Request writer/http.ResponseWriter settings/Map modules/
     // todo: validate decoded
     log.info "Received JSON: $decoded"
     if id == "0":
-      module.outputs[decoded["index"]].set decoded["value"]
+      module.outputs[decoded["index"]].force-set decoded["value"]
     else:
       remote-module := modules[id]
 

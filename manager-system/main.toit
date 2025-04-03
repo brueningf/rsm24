@@ -94,15 +94,20 @@ main:
 
   task --background::
     while true:
+      trigger-heartbeat 2
+      sleep --ms=100
+
+  task --background::
+    while true:
       exception := catch:
-        trigger-heartbeat 2
         // update state of this station
         module.update-state
         modules["0"] = module.to-map
         check-modules
       if exception:
         log.error "Exception: ModuleUpdate - $exception"
-      sleep --ms=1000
+
+      sleep --ms=100
 
   task --background::
     while true:
