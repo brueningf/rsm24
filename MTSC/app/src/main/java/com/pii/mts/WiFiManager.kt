@@ -44,20 +44,27 @@ class WiFiManager(private val context: Context) : ViewModel() {
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
-    private val _isConnected = MutableStateFlow(false)
-    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+    private val _isConnected = MutableLiveData(false)
+    val isConnected: LiveData<Boolean> = _isConnected
 
+    private var currentNetwork: Network? = null
+    private var targetSsid: String? = null
 
     fun checkWiFiConnection(ssid: String) {
+        targetSsid = ssid
+        if(currentNetwork == null){
+            _isConnected.postValue(false)
+            return;
+        }
         val activeNetwork = connectivityManager.activeNetwork
         val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-
         val currentSsid = wifiManager.connectionInfo?.ssid?.replace("\"", "") ?: ""
 
-        _isConnected.value = (networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true && currentSsid == ssid)
+        _isConnected.postValue(networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true && currentSsid == targetSsid)
     }
 
     fun connectToWiFi(ssid: String, password: String) {
+        targetSsid = ssid
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val specifier = WifiNetworkSpecifier.Builder()
                 .setSsid(ssid)
@@ -69,22 +76,29 @@ class WiFiManager(private val context: Context) : ViewModel() {
                 .setNetworkSpecifier(specifier)
                 .build()
 
-            connectivityManager.requestNetwork(networkRequest, object : ConnectivityManager.NetworkCallback() {
+            connectivityManager.requestNetwork(networkRequest, object :
+                ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
                     super.onAvailable(network)
+                    currentNetwork = network;
                     connectivityManager.bindProcessToNetwork(network)
-                    _isConnected.value = (true)
+                    _isConnected.postValue(true)
                 }
 
                 override fun onUnavailable() {
                     super.onUnavailable()
-                    _isConnected.value = (false)
+                    currentNetwork = null;
+                    _isConnected.postValue(false)
                 }
 
                 override fun onLost(network: Network) {
                     super.onLost(network)
-                    connectivityManager.bindProcessToNetwork(null)
-                    _isConnected.value = (false)
+                    if (currentNetwork == network){
+                        currentNetwork = null;
+                        connectivityManager.bindProcessToNetwork(null)
+                        _isConnected.postValue(false)
+                    }
+
                 }
             })
         } else {
@@ -119,12 +133,9 @@ class WiFiManagerHelperFactory(private val context: Context) : ViewModelProvider
 
 
 @Composable
-fun WiFiConnectButton(ssid: String, password: String) {
-    val context = LocalContext.current
-    val wifiHelper: WiFiManager = viewModel(factory = WiFiManagerHelperFactory(context))
+fun WiFiConnectButton(ssid: String, password: String, wifiHelper: WiFiManager) {
     val scope = rememberCoroutineScope()
-    val isConnected by wifiHelper.isConnected.collectAsState()
-
+    val isConnected by wifiHelper.isConnected.observeAsState(initial = false)
 
     val coroutineScope = rememberCoroutineScope()
 

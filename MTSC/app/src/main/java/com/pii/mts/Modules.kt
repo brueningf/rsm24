@@ -16,10 +16,14 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,9 +70,16 @@ data class ModuleInput(
 
 data class ModuleOutput(
     @SerializedName("pin") val pin: Int,
-    @SerializedName("value") var value: String,
+    @SerializedName("value") var _value: Int,
     @SerializedName("manual") val manual: Boolean,
-)
+) {
+    var value: Boolean
+        // Convert Int to Boolean
+        get() = _value != 0
+        set(newValue) {
+            _value = if (newValue) 1 else 0
+        }
+}
 
 data class ModuleAnalogInput(
     @SerializedName("pin") val pin: Int,
@@ -122,16 +133,48 @@ fun ModuleCard(module: Module) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Module ID: ${module.id}", style = MaterialTheme.typography.titleMedium, color = Color.Black)
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                    Text(
+                        "Module ID: ${module.id}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.LightGray,
+                    )
 
-                // Circle indicator for on/off state
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clip(CircleShape)
-                        .background(if (module.online) Color.Green else Color.Gray) // Green if ON, Gray if OFF
-                )
+                    Row(modifier = Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
+                        // Circle indicator for on/off state
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(if (module.online) Color.Green else Color.Gray) // Green if ON, Gray if OFF
+                        )
+
+                        if (module.id == 0) {
+                            // Button with power-off icon
+                            IconButton(
+                                onClick = {
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        try {
+                                            ApiClient.api.callInterrupt() // Call the API to turn off the module
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ExitToApp, // Power off icon
+                                    contentDescription = "Interrupt",
+                                    tint = Color.Red // Red color for power-off button
+                                )
+                            }
+                        }
+                    }
             }
             Column {
                 Text(
@@ -203,7 +246,11 @@ fun ModuleCard(module: Module) {
 
 @Composable
 fun OutputToggle(output: ModuleOutput, index: Int, module: Module) {
-    var active by remember { mutableStateOf(output.value == "1") }
+    var active by remember { mutableStateOf(output.value) }
+
+    LaunchedEffect(output.value) {
+        active = output.value // Sync state when output.value changes
+    }
 
     Row(
         modifier = Modifier
@@ -218,7 +265,12 @@ fun OutputToggle(output: ModuleOutput, index: Int, module: Module) {
             Box(
                 modifier = Modifier.border(width = 1.dp, color = Color.Red)
             ) {
-                Text(text = "F", fontWeight = FontWeight.Bold, color = Color.Red, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+                Text(
+                    text = "F",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Red,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                )
             }
         }
 
@@ -234,11 +286,12 @@ fun OutputToggle(output: ModuleOutput, index: Int, module: Module) {
                             "value" to if (active) 1 else 0 // Toggle logic
                         )
 
-                        // Update state to reflect the API request
-                        output.value = if (active) "1" else "0"
-
                         ApiClient.api.toggleModuleOutput(module.id, toggleRequest)
+
+                        // Update state to reflect the API request
+                        output.value = active
                     } catch (e: Exception) {
+                        active = !active // revert back
                         e.printStackTrace()
                     }
                 }

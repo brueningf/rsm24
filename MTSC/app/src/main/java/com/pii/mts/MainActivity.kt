@@ -31,7 +31,9 @@ import android.view.WindowManager;
 import androidx.annotation.RequiresApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlin.time.Duration.Companion.milliseconds
 
 
@@ -86,13 +88,19 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen() {
+    val context = LocalContext.current
     val tanksState = remember { mutableStateListOf<Tank>() }
     val modulesState = remember { mutableStateListOf<Module>() } // State for modules
     val settingsState = remember { mutableStateOf<Map<String, Int>?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
-    val context = LocalContext.current
-    val refreshRate by SettingsRepository.getRefreshRateFlow(context).collectAsState(initial = 5000.milliseconds)
+    val wifiHelper: WiFiManager = viewModel(factory = WiFiManagerHelperFactory(context))
+    val isConnected by wifiHelper.isConnected.observeAsState(initial = false)
+    val ssid = "mywifi"
+    val password = "12345678"
+
+    val refreshRate by SettingsRepository.getRefreshRateFlow(context)
+        .collectAsState(initial = 5000.milliseconds)
 
     WiFiPermissionCheck(
         onPermissionsGranted = {
@@ -107,30 +115,39 @@ fun DashboardScreen() {
 
     // Poll modules data every few seconds
     LaunchedEffect(Unit) {
-        coroutineScope.launch(Dispatchers.IO) {
-            try {
-                val settings = ApiClient.api.fetchSettings()
-                settingsState.value = settings
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
         while (true) {
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    val modules = ApiClient.api.fetchModules()
-                    modulesState.clear()
-                    modulesState.addAll(modules)
-                } catch (e: Exception) {
-                    e.printStackTrace() // Handle exceptions (e.g., network issues)
-                    modulesState.forEach { module ->
-                        module.online = false
+            if (isConnected) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        val settings = ApiClient.api.fetchSettings()
+                        settingsState.value = settings
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
+
+                while (true) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val modules = ApiClient.api.fetchModules()
+                            modulesState.clear()
+                            modulesState.addAll(modules)
+                        } catch (e: Exception) {
+                            e.printStackTrace() // Handle exceptions (e.g., network issues)
+                            modulesState.forEach { module ->
+                                module.online = false
+                            }
+                        }
+                    }
+
+                    kotlinx.coroutines.delay(refreshRate)
+                }
+
+            } else {
+                wifiHelper.connectToWiFi(ssid, password)
             }
 
-            kotlinx.coroutines.delay(refreshRate)
+            kotlinx.coroutines.delay(5000)
         }
     }
 
@@ -160,12 +177,12 @@ fun DashboardScreen() {
                 modifier = Modifier.statusBarsPadding(),
                 actions = {
                     IconButton(onClick = {
-                       selectedTabIndex = 2
+                        selectedTabIndex = 2
                     }) {
                         Icon(Icons.Filled.Settings, null)
                     }
 
-                    WiFiConnectButton(ssid = "mywifi", password = "12345678")
+                    WiFiConnectButton(ssid, password, wifiHelper)
                 }
             )
         },
@@ -185,8 +202,9 @@ fun DashboardScreen() {
                         onClick = { selectedTabIndex = index },
                         text = {
                             if (title !== "Settings") {
-                                Text(title) }
+                                Text(title)
                             }
+                        }
                     )
                 }
             }
