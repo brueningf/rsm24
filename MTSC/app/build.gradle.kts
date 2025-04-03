@@ -60,7 +60,10 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-    // preferences
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2") // Or the latest version
+    implementation("androidx.compose.runtime:runtime-livedata:1.5.4") //or the latest version
+
+    // preferences
     implementation("androidx.datastore:datastore-preferences:1.1.4")
 
     // graphs

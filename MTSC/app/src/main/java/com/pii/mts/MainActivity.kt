@@ -2,6 +2,7 @@ package com.pii.mts
 
 import Module
 import ModulesSection
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,8 +28,12 @@ import retrofit2.http.Path
 import retrofit2.http.Body
 
 import android.view.WindowManager;
+import androidx.annotation.RequiresApi
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.platform.LocalContext
 import kotlin.time.Duration.Companion.milliseconds
+
 
 // Retrofit API Interface
 interface ApiService {
@@ -64,6 +69,7 @@ data class Tank(
     @SerializedName("currentLevel") val currentLevel: Float
 )
 
+@RequiresApi(Build.VERSION_CODES.Q)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,6 +94,16 @@ fun DashboardScreen() {
     val context = LocalContext.current
     val refreshRate by SettingsRepository.getRefreshRateFlow(context).collectAsState(initial = 5000.milliseconds)
 
+    WiFiPermissionCheck(
+        onPermissionsGranted = {
+            // All permissions granted, proceed with Wi-Fi operations
+            println("Permissions Granted")
+        },
+        onPermissionsDenied = {
+            // Permissions denied, handle accordingly
+            println("Permissions Denied")
+        }
+    )
 
     // Poll modules data every few seconds
     LaunchedEffect(Unit) {
@@ -141,7 +157,16 @@ fun DashboardScreen() {
         topBar = {
             TopAppBar(
                 title = { Text("Multi-Tank System") },
-                modifier = Modifier.statusBarsPadding()
+                modifier = Modifier.statusBarsPadding(),
+                actions = {
+                    IconButton(onClick = {
+                       selectedTabIndex = 2
+                    }) {
+                        Icon(Icons.Filled.Settings, null)
+                    }
+
+                    WiFiConnectButton(ssid = "mywifi", password = "12345678")
+                }
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -158,7 +183,10 @@ fun DashboardScreen() {
                     Tab(
                         selected = selectedTabIndex == index,
                         onClick = { selectedTabIndex = index },
-                        text = { Text(title) }
+                        text = {
+                            if (title !== "Settings") {
+                                Text(title) }
+                            }
                     )
                 }
             }
@@ -218,6 +246,7 @@ fun TankCard(tank: Tank) {
         }
     }
 }
+
 
 // Retrofit Client
 object ApiClient {
