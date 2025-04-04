@@ -41,8 +41,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class WiFiManager(private val context: Context) : ViewModel() {
-    private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val connectivityManager =
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val wifiManager =
+        context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
     private val _isConnected = MutableLiveData(false)
     val isConnected: LiveData<Boolean> = _isConnected
@@ -52,7 +54,7 @@ class WiFiManager(private val context: Context) : ViewModel() {
 
     fun checkWiFiConnection(ssid: String) {
         targetSsid = ssid
-        if(currentNetwork == null){
+        if (currentNetwork == null) {
             _isConnected.postValue(false)
             return;
         }
@@ -93,7 +95,7 @@ class WiFiManager(private val context: Context) : ViewModel() {
 
                 override fun onLost(network: Network) {
                     super.onLost(network)
-                    if (currentNetwork == network){
+                    if (currentNetwork == network) {
                         currentNetwork = null;
                         connectivityManager.bindProcessToNetwork(null)
                         _isConnected.postValue(false)
@@ -143,21 +145,24 @@ fun WiFiConnectButton(ssid: String, password: String, wifiHelper: WiFiManager) {
         wifiHelper.checkWiFiConnection(ssid)
     }
 
-    IconButton(
-        onClick = {
-            scope.launch(Dispatchers.IO) {
-                wifiHelper.connectToWiFi(ssid, password)
-                withContext(Dispatchers.Main) {
-                    wifiHelper.checkWiFiConnection(ssid)
+    if (!isConnected) {
+        IconButton(
+            onClick = {
+                scope.launch(Dispatchers.IO) {
+                    wifiHelper.connectToWiFi(ssid, password)
+                    withContext(Dispatchers.Main) {
+                        wifiHelper.checkWiFiConnection(ssid)
+                    }
                 }
-            }
-        },
-        modifier = Modifier.size(48.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Warning,
-            contentDescription = "WiFi Connection",
-            tint = if (isConnected) Color.Green else Color.Red
-        )
+            },
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Warning,
+                contentDescription = "WiFi Connection",
+                tint = if (isConnected) Color.Green else Color.Red
+            )
+        }
+
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -26,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -155,24 +157,7 @@ fun ModuleCard(module: Module) {
                         )
 
                         if (module.id == 0) {
-                            // Button with power-off icon
-                            IconButton(
-                                onClick = {
-                                    CoroutineScope(Dispatchers.IO).launch {
-                                        try {
-                                            ApiClient.api.callInterrupt() // Call the API to turn off the module
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                        }
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ExitToApp, // Power off icon
-                                    contentDescription = "Interrupt",
-                                    tint = Color.Red // Red color for power-off button
-                                )
-                            }
+                            InterruptButton()
                         }
                     }
             }
@@ -259,7 +244,7 @@ fun OutputToggle(output: ModuleOutput, index: Int, module: Module) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("${index + 1} | GPIO: ${output.pin} | Val: ${output.value}")
+        Text("${index + 1} | GPIO: ${output.pin} | ${output.value}")
 
         if (output.manual) {
             Box(
@@ -350,5 +335,49 @@ fun AnalogInputGraph(analogInput: ModuleAnalogInput) {
         animationMode = AnimationMode.OneByOne, // Smooth sequential animation
         labelHelperProperties = LabelHelperProperties(false)
     )
+}
+
+@Composable
+fun InterruptButton() {
+    var showDialog by remember { mutableStateOf(false) }
+
+    IconButton(
+        onClick = { showDialog = true }
+    ) {
+        Icon(
+            imageVector = Icons.Default.ExitToApp, // Power off icon
+            contentDescription = "Interrupt",
+            tint = Color.Red // Red color for power-off button
+        )
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Confirm Interrupt") },
+            text = { Text("Are you sure you want to turn off/interrupt the module?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                ApiClient.api.callInterrupt() // Call the API to turn off the module
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+                ) {
+                    Text("Yes", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
