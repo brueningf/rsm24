@@ -1,6 +1,7 @@
 package com.pii.mts
 
 import android.content.Context
+import android.content.Intent
 import android.net.*
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSpecifier
@@ -28,6 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiConfiguration
+import android.provider.Settings
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,11 +51,16 @@ class WiFiManager(private val context: Context) : ViewModel() {
     private val _isConnected = MutableLiveData(false)
     val isConnected: LiveData<Boolean> = _isConnected
 
+    private val manufacturer: String = Build.MANUFACTURER
     private var currentNetwork: Network? = null
     private var targetSsid: String? = null
 
     fun checkWiFiConnection(ssid: String) {
         targetSsid = ssid
+        if (manufacturer.equals("HUAWEI", ignoreCase = true)) {
+            _isConnected.postValue(true)
+            return;
+        }
         if (currentNetwork == null) {
             _isConnected.postValue(false)
             return;
@@ -67,7 +74,8 @@ class WiFiManager(private val context: Context) : ViewModel() {
 
     fun connectToWiFi(ssid: String, password: String) {
         targetSsid = ssid
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !manufacturer.equals("HUAWEI", ignoreCase = true)) {
             val specifier = WifiNetworkSpecifier.Builder()
                 .setSsid(ssid)
                 .setWpa2Passphrase(password)
@@ -103,7 +111,13 @@ class WiFiManager(private val context: Context) : ViewModel() {
 
                 }
             })
-        } else {
+        }
+        else if (manufacturer.equals("HUAWEI", ignoreCase = true)) {
+            val wifiIntent = Intent(Settings.ACTION_WIFI_SETTINGS)
+            context.startActivity(wifiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        else {
+            println("ATTEMPT CONNECT TO WIFI")
             // For API levels below Q, use WifiConfiguration
             val wifiConfig = WifiConfiguration().apply {
                 this.SSID = "\"$ssid\""
@@ -115,9 +129,9 @@ class WiFiManager(private val context: Context) : ViewModel() {
                 wifiManager.disconnect()
                 wifiManager.enableNetwork(netId, true)
                 wifiManager.reconnect()
-                _isConnected.value = (true) // Assumes connection success. Add better checking.
+                _isConnected.postValue(true) // Assumes connection success. Add better checking.
             } else {
-                _isConnected.value = (false)
+                _isConnected.postValue(false)
             }
         }
     }

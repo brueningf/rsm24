@@ -1,7 +1,8 @@
-sdk: ^2.0.0-alpha.145
+sdk: ^2.0.0-alpha.150
 prefixes:
   aht20: aht20-driver
   bmp280: bmp280-driver
+  certificate-roots: toit-cert-roots
   http: pkg-http
   ntp: pkg-ntp
 packages:
@@ -25,3 +26,8 @@ packages:
     name: ntp
     version: 1.1.0
     hash: e69bb1abc0d3d4aa7642eec3360e52744e4d011d
+  toit-cert-roots:
+    url: github.com/toitware/toit-cert-roots
+    name: certificate-roots
+    version: 1.10.0
+    hash: 1445c4a6cae47689674ae02c5f1dc03660f1df8c

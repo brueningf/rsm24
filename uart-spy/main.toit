@@ -5,16 +5,16 @@ import gpio
 import .index
 import ..libs.utils
 
+HEARTBEAT-LED ::= 15
 ORX ::= 2
 OTX ::= 4
-
-TRX ::= 16
-TTX ::= 17
+TARGET-RX ::= 17
+TARGET-TX ::= 16
 
 main:
   print "Starting"
   port := uart.Port
-      --rx=gpio.Pin TRX
+      --rx=gpio.Pin TARGET-RX
       --tx=null
       --baud-rate=115200
 
@@ -51,6 +51,6 @@ main:
 
   task::
     while true:
-      trigger-heartbeat 22 1
+      trigger-heartbeat HEARTBEAT-LED 1
 
       sleep --ms=1000

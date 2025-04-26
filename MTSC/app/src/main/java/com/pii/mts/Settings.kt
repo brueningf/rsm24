@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -92,7 +94,8 @@ fun SettingsSection(settings: Map<String, Int>?, onSave: (Map<String, Int>) -> U
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) } // Attach SnackbarHost
     ) { paddingValues ->
         Column(
-            modifier = Modifier.padding(paddingValues),
+            modifier = Modifier.padding(paddingValues)
+                .verticalScroll(rememberScrollState()), // Enables scrolling
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Card(

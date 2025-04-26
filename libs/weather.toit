@@ -7,12 +7,14 @@ import log
 class Weather:
   sda/int
   scl/int
+  address/int
+
   temperature/float := 0.0
   humidity/float := 0.0
   pressure/float := 0.0
   available/bool := true
 
-  constructor .sda/int .scl/int:
+  constructor .sda/int .scl/int .address/int=bmp280.I2C-ADDRESS-ALT:
 
   to-map -> Map:
     return {
@@ -41,7 +43,7 @@ class Weather:
   
       try:
         bmp280-exception := catch:
-          device := bus.device bmp280.I2C-ADDRESS-ALT
+          device := bus.device address
           driver := bmp280.Bmp280 device
           driver.on
           temperature = driver.read-temperature
