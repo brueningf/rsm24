@@ -11,9 +11,13 @@ import ..libs.utils
 
 import .ManagerAPI
 import .Module
+import .ApiUtils
 
 CAPTIVE_PORTAL_SSID     ::= "mywifi"
 CAPTIVE_PORTAL_PASSWORD ::= "12345678"
+
+EXTERNAL_WIFI_SSID     ::= "CHAVIN 2.4GHZ"
+EXTERNAL_WIFI_PASSWORD ::= "person-rough-sweat"
 
 INDEX ::= """
 <html>
@@ -40,6 +44,10 @@ network := ?
 
 main:
   log.info "starting"
+
+  /**
+   * Check if the interrupt button is pressed
+   */
   sleep --ms=5000
   pin := gpio.Pin 0 --input --pull-up
   if pin.get == 0: 
@@ -48,7 +56,10 @@ main:
     sleep --ms=2000
     return
 
-  log.info "loading settings"
+  /**
+   * Load settings from flash
+   */
+  log.info "Loading settings"
   settings-bucket := storage.Bucket.open --flash "settings"
 
   settings.keys.do:
@@ -57,13 +68,23 @@ main:
 
   log.info "loading module"
 
-  // inputs, output[pin, default=0], analog-ins, pulse counter
+  /**
+   * Initialize the module
+   * Parameters:
+   * inputs, output[pin, default=0], analog-ins, pulse counter
+   */
   module = Module "0" [15, 16, 38] [[8, 1], 9, 10, 11, 12, 13, [17, 1], [18, 1]] [4, 5, 6, 7] []
-  pump-active := false
 
+  pump-active := false // tmp variable
+
+  /**
+   * Run the main task
+   */
   task:: run
 
-  // auto pump
+  /**
+   * Auto pump
+   */
   task --background::
     while true:
       if modules.contains "1" and network:
@@ -92,11 +113,17 @@ main:
           print "failed driving pump"
       sleep --ms=2000
 
+  /**
+   * Heartbeat
+   */
   task --background::
     while true:
       trigger-heartbeat 2
       sleep --ms=100
 
+  /**
+   * Update the state of the module
+   */
   task --background::
     while true:
       exception := catch:
@@ -109,6 +136,7 @@ main:
 
       sleep --ms=100
 
+  
   task --background::
     while true:
       module.read-weather
@@ -126,38 +154,56 @@ check-modules:
         modules.remove m["id"]
  
 run:
+  while true:
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"
     network = wifi.establish
         --ssid=CAPTIVE_PORTAL_SSID
         --password=CAPTIVE_PORTAL_PASSWORD
     log.info "wifi established"      
-    run_http
+    listener := run_http
+    sleep --ms=10000
+    listener.cancel
     log.info "wifi closing"
+    network.close
+    
+    // Try to connect to external WiFi
+    log.info "Attempting to connect to external WiFi"
+    network = wifi.open --ssid=EXTERNAL_WIFI_SSID --password=EXTERNAL_WIFI_PASSWORD
+    if network:
+      log.info "Connected to external WiFi"
+      // TODO: Implement your external WiFi operations here
+      sleep --ms=10000  // Stay connected for 10 seconds
+    else:
+      log.info "Failed to connect to external WiFi"
+    
+    network.close
+    sleep --ms=1000  // Small delay before restarting the loop
 
 run_http:
   socket := network.tcp_listen 80
   server := http.Server --max-tasks=3
-  server.listen socket:: | request writer |
-    exception := catch:
-      handle_http_request request writer
-    if exception == "Interrupt":
-      socket.close
-    else if exception:
-      log.error "Exception: HTTP - $exception"
-      
-      writer.headers.set "Content-Type" "text/plain"
-      writer.out.write "Internal server error"
-      writer.close
-  unreachable
+  listener := task::
+    server.listen socket:: | request writer |
+      exception := catch:
+        handle_http_request request writer
+      if exception == "Interrupt":
+        socket.close
+      else if exception:
+        log.error "Exception: HTTP - $exception"
+        
+        writer.headers.set "Content-Type" "text/plain"
+        writer.out.write "Internal server error"
+        writer.close
+  return listener
 
 handle_http_request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
     resource := query.resource
     if resource == "/":
-        write-response writer 200 INDEX "text/html"
+        ApiUtils.write-html writer 200 INDEX
     else if resource.starts_with "/api": 
       handle_api request writer settings modules module network
     else:
-      write-response writer 404 "Not found" "text/plain"
+      ApiUtils.write-error writer 404 "Not found"
     writer.close
 
