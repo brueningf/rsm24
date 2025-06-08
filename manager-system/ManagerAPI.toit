@@ -50,8 +50,11 @@ class ApiHandler:
       else:
         ApiUtils.write-error writer 404 "Not found"
     if exception:
-      log.error "Error handling request"
-      ApiUtils.write-error writer 500 "Internal server error"
+      if exception == "Interrupt":
+        throw "Interrupt"
+      else:
+        log.error "Error handling request"
+        ApiUtils.write-error writer 500 "Internal server error"
 
   handle-modules request/http.Request writer/http.ResponseWriter id/string?:
     if request.method == http.GET:

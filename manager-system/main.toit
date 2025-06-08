@@ -3,6 +3,7 @@ import log
 import net
 import net.wifi
 import gpio
+import mqtt
 import encoding.url
 import encoding.json
 import system.storage
@@ -13,11 +14,16 @@ import .ManagerAPI
 import .Module
 import .ApiUtils
 
-CAPTIVE_PORTAL_SSID     ::= "mywifi"
-CAPTIVE_PORTAL_PASSWORD ::= "12345678"
+CAPTIVE-PORTAL-SSID     ::= "mywifi"
+CAPTIVE-PORTAL-PASSWORD ::= "12345678"
 
-EXTERNAL_WIFI_SSID     ::= "CHAVIN 2.4GHZ"
-EXTERNAL_WIFI_PASSWORD ::= "person-rough-sweat"
+EXTERNAL-WIFI-SSID     ::= "SPACELAB2"
+EXTERNAL-WIFI-PASSWORD ::= "x6254Y:gf7<3"
+
+CLIENT-ID ::= "local-pie"
+MQTT-HOST ::= "mqtt.fredesk.com"
+MQTT-USERNAME ::= "admin"
+MQTT-PASSWORD ::= "curie-tahoe-snuggly"
 
 INDEX ::= """
 <html>
@@ -154,30 +160,52 @@ check-modules:
         modules.remove m["id"]
  
 run:
+  options := mqtt.SessionOptions
+    --client-id=CLIENT-ID
+    --username=MQTT-USERNAME
+    --password=MQTT-PASSWORD
+    --clean-session=true
   while true:
+    sleep --ms=1000
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"
-    network = wifi.establish
-        --ssid=CAPTIVE_PORTAL_SSID
-        --password=CAPTIVE_PORTAL_PASSWORD
-    log.info "wifi established"      
-    listener := run_http
-    sleep --ms=10000
-    listener.cancel
-    log.info "wifi closing"
-    network.close
+    try:
+      network = wifi.establish
+          --ssid=CAPTIVE-PORTAL-SSID
+          --password=CAPTIVE-PORTAL-PASSWORD
+      log.info "wifi established"      
+      exception := catch:
+        listener := run_http
+        sleep --ms=60000
+        listener.cancel
+      if exception:
+        log.info "Breaking"
+        log.info exception
+        break
+      log.info "wifi closing"
+    finally:
+      network.close
     
     // Try to connect to external WiFi
     log.info "Attempting to connect to external WiFi"
-    network = wifi.open --ssid=EXTERNAL_WIFI_SSID --password=EXTERNAL_WIFI_PASSWORD
-    if network:
+    try:
+      network = wifi.open --ssid=EXTERNAL-WIFI-SSID --password=EXTERNAL-WIFI-PASSWORD
       log.info "Connected to external WiFi"
-      // TODO: Implement your external WiFi operations here
-      sleep --ms=10000  // Stay connected for 10 seconds
-    else:
-      log.info "Failed to connect to external WiFi"
-    
-    network.close
-    sleep --ms=1000  // Small delay before restarting the loop
+      exception := catch:
+        client := mqtt.Client --host=MQTT-HOST
+        client.start --options=options
+        payload := json.encode {
+          "module": CLIENT-ID,
+          "modules": modules.values
+        }
+        client.publish "mtsc" payload
+        log.info "sent payload to graph.fredesk.com"
+        client.close
+      if exception:
+        log.info "Failed to connect to external WiFi or report to server" 
+        print exception
+    finally:
+      network.close
+    sleep --ms=1000
 
 run_http:
   socket := network.tcp_listen 80
@@ -188,6 +216,7 @@ run_http:
         handle_http_request request writer
       if exception == "Interrupt":
         socket.close
+        throw "Interrupt"
       else if exception:
         log.error "Exception: HTTP - $exception"
         

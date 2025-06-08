@@ -1,9 +1,10 @@
-sdk: ^2.0.0-alpha.150
+sdk: ^2.0.0-alpha.161
 prefixes:
   aht20: aht20-driver
   bmp280: bmp280-driver
   certificate-roots: toit-cert-roots
   http: pkg-http
+  mqtt: mqtt
   ntp: pkg-ntp
 packages:
   aht20-driver:
@@ -16,6 +17,11 @@ packages:
     name: bmp280
     version: 1.0.0
     hash: 17824b46f0fd5b9355e616de4bb5603dd6e9f6eb
+  mqtt:
+    url: github.com/toitware/mqtt
+    name: mqtt
+    version: 2.13.0
+    hash: d11d8e786f0a81c9b9b6157f90eb4f7f4ebbfa9c
   pkg-http:
     url: github.com/toitlang/pkg-http
     name: http

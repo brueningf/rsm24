@@ -1,47 +1,42 @@
-INDEX-HTML ::= """
+import ..libs.weather
+
+INDEX-HTML module-name/string:
+  return """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>UART Spy</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #F5F5F5;
-            color: #333;
-            padding: 10px;
-        }
-        #messages {
-            height: 70vh;
-            border: 1px solid #ddd;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        #input {
-            width: 100%;
-            height: 30px;
-            padding: 5px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-    </style>
+    <title>UART Spy - $module-name</title>
+    <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body>
-    <h1>UART Spy</h1>
-    <div id="messages"></div>
+    <h1 class="text-lg">UART Spy ($module-name)</h1>
+    <a href="/reset">RESET</a>
+    <div class="grid grid-cols-2 gap-2 h-screen max-h-screen">
+      <div>
+        <h3 class="text-lg font-bold">Target</h3>
+        <div id="messages-target" class="min-h-96 border-2 border-black p-1 bg-yellow-100 overflow-y-scroll"></div>
+      </div>
+      <div>
+        <h3 class="text-lg font-bold">Self</h3>
+        <div id="messages-me" class="min-h-96 border-2 border-black p-1 bg-red-100 overflow-y-scroll"></div>
+      </div>
+    </div>
 <script>
     var ws = new WebSocket('ws://' + window.location.host + '/ws');
-    var messages = document.getElementById('messages');
+    var messagesTarget = document.getElementById('messages-target');
+    var messagesMe = document.getElementById('messages-me');
     var input = document.getElementById('input');
 
     ws.onmessage = function(event) {
         var message = document.createElement('p');
         message.textContent = event.data;
-        messages.appendChild(message);
-        messages.scrollTop = messages.scrollHeight;
+        if (event.data.indexOf("TARGET") != -1) {
+          messagesTarget.appendChild(message);
+          messagesTarget.scrollTop = messages.scrollHeight;
+        } else if(event.data.indexOf("ME") != -1) {
+          messagesMe.appendChild(message);
+          messagesMe.scrollTop = messages.scrollHeight;
+        }
     };
 
     input.addEventListener('keydown', function(event) {
