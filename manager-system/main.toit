@@ -160,52 +160,68 @@ check-modules:
         modules.remove m["id"]
  
 run:
-  options := mqtt.SessionOptions
-    --client-id=CLIENT-ID
-    --username=MQTT-USERNAME
-    --password=MQTT-PASSWORD
-    --clean-session=true
   while true:
-    sleep --ms=1000
+    // Communicate with module network
     log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"
-    try:
+    server-exception := catch:
+      run-server
+      network.close
+    if server-exception:
+      log.info "Server: $server-exception"
+    sleep --ms=1000
+    
+    // Connect to LAN
+    log.info "Attempting to connect to external WiFi"
+    client-exception := catch:
+      run-client
+      network.close
+    if client-exception:
+      log.info "Client: $client-exception"
+    sleep --ms=1000
+
+run-server:
+  try:
+    wifi-exception := catch:
       network = wifi.establish
           --ssid=CAPTIVE-PORTAL-SSID
           --password=CAPTIVE-PORTAL-PASSWORD
       log.info "wifi established"      
-      exception := catch:
-        listener := run_http
-        sleep --ms=60000
-        listener.cancel
-      if exception:
-        log.info "Breaking"
-        log.info exception
-        break
-      log.info "wifi closing"
-    finally:
-      network.close
-    
-    // Try to connect to external WiFi
-    log.info "Attempting to connect to external WiFi"
-    try:
-      network = wifi.open --ssid=EXTERNAL-WIFI-SSID --password=EXTERNAL-WIFI-PASSWORD
-      log.info "Connected to external WiFi"
-      exception := catch:
-        client := mqtt.Client --host=MQTT-HOST
-        client.start --options=options
-        payload := json.encode {
-          "module": CLIENT-ID,
-          "modules": modules.values
-        }
-        client.publish "mtsc" payload
-        log.info "sent payload to graph.fredesk.com"
-        client.close
-      if exception:
-        log.info "Failed to connect to external WiFi or report to server" 
-        print exception
-    finally:
-      network.close
-    sleep --ms=1000
+    if wifi-exception:
+      log.info "failed to establish AP"
+      
+    exception := catch:
+      listener := run_http
+      sleep --ms=60000
+      listener.cancel
+    if exception:
+      log.info "Breaking"
+      log.info exception
+      if exception == "Interrupt":
+        throw exception
+    log.info "wifi closing"
+  finally:
+    network.close
+
+run-client:
+  try:
+    network = wifi.open --ssid=EXTERNAL-WIFI-SSID --password=EXTERNAL-WIFI-PASSWORD
+    log.info "Connected to external WiFi"
+    client := mqtt.Client --host=MQTT-HOST
+    options := mqtt.SessionOptions
+      --client-id=CLIENT-ID
+      --username=MQTT-USERNAME
+      --password=MQTT-PASSWORD
+      --clean-session=true
+    client.start --options=options
+    payload := json.encode {
+      "module": CLIENT-ID,
+      "modules": modules.values
+    }
+    client.publish "mtsc" payload
+    client.close
+    log.info "MQTT message sent"
+  finally:
+    network.close
 
 run_http:
   socket := network.tcp_listen 80
