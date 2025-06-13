@@ -27,12 +27,7 @@ MQTT-PASSWORD ::= "curie-tahoe-snuggly"
 
 INDEX ::= """
 <html>
-  <head>
-    <title>Server</title>
-  </head>
-  <body>
     <p>Server is running</p>
-  <body>
 <html>
 """
 
@@ -190,9 +185,8 @@ run-server:
       log.info "failed to establish AP"
       
     exception := catch:
-      listener := run_http
-      sleep --ms=60000
-      listener.cancel
+       with-timeout (Duration --m=1):
+        run-http
     if exception:
       log.info "Breaking"
       log.info exception
@@ -204,30 +198,33 @@ run-server:
 
 run-client:
   try:
-    network = wifi.open --ssid=EXTERNAL-WIFI-SSID --password=EXTERNAL-WIFI-PASSWORD
-    log.info "Connected to external WiFi"
-    client := mqtt.Client --host=MQTT-HOST
-    options := mqtt.SessionOptions
-      --client-id=CLIENT-ID
-      --username=MQTT-USERNAME
-      --password=MQTT-PASSWORD
-      --clean-session=true
-    client.start --options=options
-    payload := json.encode {
-      "module": CLIENT-ID,
-      "modules": modules.values
-    }
-    client.publish "mtsc" payload
-    client.close
-    log.info "MQTT message sent"
+    exception := catch:
+      network = wifi.open --ssid=EXTERNAL-WIFI-SSID --password=EXTERNAL-WIFI-PASSWORD
+      log.info "Connected to external WiFi"
+      client := mqtt.Client --host=MQTT-HOST
+      options := mqtt.SessionOptions
+        --client-id=CLIENT-ID
+        --username=MQTT-USERNAME
+        --password=MQTT-PASSWORD
+        --clean-session=true
+      client.start --options=options
+      payload := json.encode {
+        "module": CLIENT-ID,
+        "modules": modules.values
+      }
+      client.publish "mtsc" payload
+      client.close
+      log.info "MQTT message sent"
+    if exception:
+      log.error "Client: $exception"
   finally:
     network.close
 
 run_http:
   socket := network.tcp_listen 80
   server := http.Server --max-tasks=3
-  listener := task::
-    server.listen socket:: | request writer |
+  server.listen socket:: | request writer |
+    try:
       exception := catch:
         handle_http_request request writer
       if exception == "Interrupt":
@@ -238,8 +235,8 @@ run_http:
         
         writer.headers.set "Content-Type" "text/plain"
         writer.out.write "Internal server error"
-        writer.close
-  return listener
+    finally:
+      writer.close
 
 handle_http_request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
