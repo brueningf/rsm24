@@ -143,6 +143,7 @@ main:
       module.read-weather
       sleep --ms=5000
 
+
 check-modules:
   now := Time.now
   modules.do: 
@@ -183,6 +184,7 @@ run-server:
       log.info "wifi established"      
     if wifi-exception:
       log.info "failed to establish AP"
+      log.error wifi-exception
       
     exception := catch:
        with-timeout (Duration --m=1):
@@ -223,20 +225,23 @@ run-client:
 run_http:
   socket := network.tcp_listen 80
   server := http.Server --max-tasks=3
-  server.listen socket:: | request writer |
-    try:
-      exception := catch:
-        handle_http_request request writer
-      if exception == "Interrupt":
-        socket.close
-        throw "Interrupt"
-      else if exception:
-        log.error "Exception: HTTP - $exception"
-        
-        writer.headers.set "Content-Type" "text/plain"
-        writer.out.write "Internal server error"
-    finally:
-      writer.close
+  server-exception := catch:
+    server.listen socket:: | request writer |
+      try:
+        exception := catch:
+          handle_http_request request writer
+        if exception == "Interrupt":
+          socket.close
+          throw "Interrupt"
+        else if exception:
+          log.error "Exception: HTTP - $exception"
+          
+          writer.headers.set "Content-Type" "text/plain"
+          writer.out.write "Internal server error"
+      finally:
+        writer.close
+  if server-exception == "Interrupt":
+    throw server-exception
 
 handle_http_request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
