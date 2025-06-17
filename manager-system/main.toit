@@ -21,6 +21,7 @@ EXTERNAL-WIFI-SSID     ::= "SPACELAB2"
 EXTERNAL-WIFI-PASSWORD ::= "x6254Y:gf7<3"
 
 CLIENT-ID ::= "local-pie"
+
 MQTT-HOST ::= "mqtt.fredesk.com"
 MQTT-USERNAME ::= "admin"
 MQTT-PASSWORD ::= "curie-tahoe-snuggly"
@@ -46,9 +47,7 @@ network := ?
 main:
   log.info "starting"
 
-  /**
-   * Check if the interrupt button is pressed
-   */
+  // Check if the device is in bootloader mode
   sleep --ms=5000
   pin := gpio.Pin 0 --input --pull-up
   if pin.get == 0: 
@@ -57,9 +56,7 @@ main:
     sleep --ms=2000
     return
 
-  /**
-   * Load settings from flash
-   */
+  // Load settings from flash
   log.info "Loading settings"
   settings-bucket := storage.Bucket.open --flash "settings"
 
@@ -69,23 +66,15 @@ main:
 
   log.info "loading module"
 
-  /**
-   * Initialize the module
-   * Parameters:
-   * inputs, output[pin, default=0], analog-ins, pulse counter
-   */
+  // inputs, output[pin, default=0], analog-ins, pulse counter
   module = Module "0" [15, 16, 38] [[8, 1], 9, 10, 11, 12, 13, [17, 1], [18, 1]] [4, 5, 6, 7] []
 
-  pump-active := false // tmp variable
+  pump-active := false // TMP variable
 
-  /**
-   * Run the main task
-   */
+  // Runs the server in AP/STA mode
   task:: run
 
-  /**
-   * Auto pump
-   */
+  // TMP pump control
   task --background::
     while true:
       if modules.contains "1" and network:
@@ -114,17 +103,13 @@ main:
           print "failed driving pump"
       sleep --ms=2000
 
-  /**
-   * Heartbeat
-   */
+  // Heart-beat
   task --background::
     while true:
       trigger-heartbeat 2
       sleep --ms=100
 
-  /**
-   * Update the state of the module
-   */
+  // General state update
   task --background::
     while true:
       exception := catch:
@@ -138,6 +123,7 @@ main:
       sleep --ms=100
 
   
+  // Read module temperature
   task --background::
     while true:
       module.read-weather
