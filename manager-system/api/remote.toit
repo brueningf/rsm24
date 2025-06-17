@@ -2,8 +2,8 @@ import http
 import log
 import encoding.json
 import net
-import .ApiUtils
-import .Module
+import .utils
+import ..Module
 
 class RemoteController:
   _modules/Map
@@ -17,7 +17,7 @@ class RemoteController:
 
   handle-remote request/http.Request writer/http.ResponseWriter id/string:
     if request.method != http.POST:
-      ApiUtils.write-error writer 405 "Method not allowed"
+      write-error writer 405 "Method not allowed"
       return
 
     decoded := json.decode-stream request.body
@@ -32,4 +32,4 @@ class RemoteController:
       response := client.post-json decoded --host=remote-module["ip"] --path="/api/output"
       client.close
 
-    ApiUtils.write-success writer 200 
+    write-success writer 200 

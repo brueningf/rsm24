@@ -10,9 +10,9 @@ import system.storage
 import system.containers
 import ..libs.utils
 
-import .ManagerAPI
+import .api.router
+import .api.utils
 import .Module
-import .ApiUtils
 
 AP-SSID     ::= "mywifi"
 AP-PASSWORD ::= "12345678"
@@ -225,10 +225,10 @@ handle-http-request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
     resource := query.resource
     if resource == "/":
-        ApiUtils.write-html writer 200 INDEX
+        write-html writer 200 INDEX
     else if resource.starts-with "/api": 
       handle-api request writer settings modules module network
     else:
-      ApiUtils.write-error writer 404 "Not found"
+      write-error writer 404 "Not found"
     writer.close
 

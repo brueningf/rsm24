@@ -2,7 +2,7 @@ import http
 import log
 import encoding.json
 import system.storage
-import .ApiUtils
+import .utils
 
 class SettingsController:
   _settings/Map
@@ -11,7 +11,7 @@ class SettingsController:
     _settings = settings
 
   handle-get writer/http.ResponseWriter:
-    ApiUtils.write-success writer 200 (json.encode _settings)
+    write-success writer 200 (json.encode _settings)
 
   handle-update request/http.Request writer/http.ResponseWriter:
     decoded := json.decode-stream request.body
@@ -24,7 +24,7 @@ class SettingsController:
         settings-bucket[it] = decoded[it]
     if exception:
       log.error "Failed to update settings: $exception"
-      ApiUtils.write-error writer 500 "Internal server error - update settings"
+      write-error writer 500 "Internal server error - update settings"
 
     // Update the settings in the manager
     _settings.keys.do:
@@ -32,4 +32,4 @@ class SettingsController:
 
     settings-bucket.close
 
-    ApiUtils.write-success writer 200 
+    write-success writer 200 
