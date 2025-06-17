@@ -79,6 +79,6 @@ class ApiHandler:
     ApiUtils.write-success writer 200
     throw "Interrupt"
 
-handle_api request/http.Request writer/http.ResponseWriter settings/Map modules/Map module/Module network/net.Client:
+handle-api request/http.Request writer/http.ResponseWriter settings/Map modules/Map module/Module network/net.Client:
   handler := ApiHandler modules settings module network
   handler.handle request writer

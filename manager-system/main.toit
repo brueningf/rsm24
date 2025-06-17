@@ -158,7 +158,7 @@ check-modules:
 run:
   while true:
     // Communicate with module network
-    log.info "establishing wifi in AP mode ($CAPTIVE_PORTAL_SSID)"
+    log.info "establishing wifi in AP mode ($CAPTIVE-PORTAL-SSID)"
     server-exception := catch:
       run-server
       network.close
@@ -222,14 +222,14 @@ run-client:
   finally:
     network.close
 
-run_http:
-  socket := network.tcp_listen 80
+run-http:
+  socket := network.tcp-listen 80
   server := http.Server --max-tasks=3
   server-exception := catch:
     server.listen socket:: | request writer |
       try:
         exception := catch:
-          handle_http_request request writer
+          handle-http-request request writer
         if exception == "Interrupt":
           socket.close
           throw "Interrupt"
@@ -243,13 +243,13 @@ run_http:
   if server-exception == "Interrupt":
     throw server-exception
 
-handle_http_request request/http.Request writer/http.ResponseWriter:
+handle-http-request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
     resource := query.resource
     if resource == "/":
         ApiUtils.write-html writer 200 INDEX
-    else if resource.starts_with "/api": 
-      handle_api request writer settings modules module network
+    else if resource.starts-with "/api": 
+      handle-api request writer settings modules module network
     else:
       ApiUtils.write-error writer 404 "Not found"
     writer.close
