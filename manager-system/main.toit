@@ -14,8 +14,8 @@ import .ManagerAPI
 import .Module
 import .ApiUtils
 
-CAPTIVE-PORTAL-SSID     ::= "mywifi"
-CAPTIVE-PORTAL-PASSWORD ::= "12345678"
+AP-SSID     ::= "mywifi"
+AP-PASSWORD ::= "12345678"
 
 EXTERNAL-WIFI-SSID     ::= "SPACELAB2"
 EXTERNAL-WIFI-PASSWORD ::= "x6254Y:gf7<3"
@@ -43,6 +43,7 @@ settings ::= {
 module := ?
 modules := Map
 network := ?
+interrupt := false
 
 main:
   log.info "starting"
@@ -144,19 +145,22 @@ check-modules:
 run:
   while true:
     // Communicate with module network
-    log.info "establishing wifi in AP mode ($CAPTIVE-PORTAL-SSID)"
+    log.info "establishing wifi in AP mode ($AP-SSID)"
     server-exception := catch:
       run-server
-      network.close
     if server-exception:
       log.info "Server: $server-exception"
+
+    log.info (interrupt ? "Server interrupted, stopping..." : "Server timeout, sending info to external server...")
+
+    if interrupt:
+      break
     sleep --ms=1000
     
     // Connect to LAN
-    log.info "Attempting to connect to external WiFi"
+    log.info "Connecting to external network ($EXTERNAL-WIFI-SSID)"
     client-exception := catch:
       run-client
-      network.close
     if client-exception:
       log.info "Client: $client-exception"
     sleep --ms=1000
@@ -165,30 +169,39 @@ run-server:
   try:
     wifi-exception := catch:
       network = wifi.establish
-          --ssid=CAPTIVE-PORTAL-SSID
-          --password=CAPTIVE-PORTAL-PASSWORD
-      log.info "wifi established"      
+          --ssid=AP-SSID
+          --password=AP-PASSWORD
+      log.info "AP established"      
     if wifi-exception:
-      log.info "failed to establish AP"
+      log.error "failed to establish AP"
       log.error wifi-exception
       
     exception := catch:
-       with-timeout (Duration --m=1):
-        run-http
+      log.info "Starting HTTP server"
+      socket := network.tcp-listen 80
+      server := http.Server --max-tasks=3
+      http-task := task::
+        server.listen socket:: | request writer |
+          exception := catch:
+            handle-http-request request writer
+          if exception == "Interrupt":
+            interrupt = true
+          else if exception:
+            log.error "Exception: HTTP - $exception"
+          writer.close
+      sleep (Duration --m=1)
+      http-task.cancel
     if exception:
-      log.info "Breaking"
-      log.info exception
-      if exception == "Interrupt":
-        throw exception
-    log.info "wifi closing"
+      log.error exception
   finally:
+    log.info "HTTP server closing"
     network.close
 
 run-client:
   try:
     exception := catch:
       network = wifi.open --ssid=EXTERNAL-WIFI-SSID --password=EXTERNAL-WIFI-PASSWORD
-      log.info "Connected to external WiFi"
+      log.info "Connected"
       client := mqtt.Client --host=MQTT-HOST
       options := mqtt.SessionOptions
         --client-id=CLIENT-ID
@@ -207,27 +220,6 @@ run-client:
       log.error "Client: $exception"
   finally:
     network.close
-
-run-http:
-  socket := network.tcp-listen 80
-  server := http.Server --max-tasks=3
-  server-exception := catch:
-    server.listen socket:: | request writer |
-      try:
-        exception := catch:
-          handle-http-request request writer
-        if exception == "Interrupt":
-          socket.close
-          throw "Interrupt"
-        else if exception:
-          log.error "Exception: HTTP - $exception"
-          
-          writer.headers.set "Content-Type" "text/plain"
-          writer.out.write "Internal server error"
-      finally:
-        writer.close
-  if server-exception == "Interrupt":
-    throw server-exception
 
 handle-http-request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
