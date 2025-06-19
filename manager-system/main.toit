@@ -187,11 +187,12 @@ run-server:
           if exception == "Interrupt":
             interrupt = true
           else if exception:
-            log.error "Exception: HTTP - $exception"
+            log.error "Server listener: $exception"
           writer.close
       sleep (Duration --m=1)
       http-task.cancel
     if exception:
+      log.error "Server: $exception"
       log.error exception
   finally:
     log.info "HTTP server closing"
