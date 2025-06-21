@@ -178,18 +178,13 @@ run-server:
       
     exception := catch:
       log.info "Starting HTTP server"
-      socket := network.tcp-listen 80
       server := http.Server --max-tasks=3
+      socket := network.tcp-listen 80
       http-task := task::
         server.listen socket:: | request writer |
-          exception := catch:
-            handle-http-request request writer
-          if exception == "Interrupt":
-            interrupt = true
-          else if exception:
-            log.error "Server listener: $exception"
-          writer.close
-      sleep (Duration --m=1)
+          handle-http-request request writer
+      //sleep (Duration --m=1)
+      sleep --ms=10000
       http-task.cancel
     if exception:
       log.error "Server: $exception"
@@ -225,11 +220,18 @@ run-client:
 handle-http-request request/http.Request writer/http.ResponseWriter:
     query := url.QueryString.parse request.path
     resource := query.resource
-    if resource == "/":
-        write-html writer 200 INDEX
-    else if resource.starts-with "/api": 
-      handle-api request writer settings modules module network
-    else:
-      write-error writer 404 "Not found"
-    writer.close
+    exception := catch:
+      if resource == "/":
+          write-html writer 200 INDEX
+      else if resource.starts-with "/api": 
+        handler := ApiHandler modules settings module network
+        handler.handle request writer
 
+        if handler.interrupt:
+          log.info "Interrupting server"
+          interrupt = true
+      else:
+        write-error writer 404 "Not found"
+    if exception:
+      log.error "HTTP Request handler: $exception"
+    writer.close

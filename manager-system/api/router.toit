@@ -15,6 +15,7 @@ class ApiHandler:
   _module-controller/ModuleController
   _settings-controller/SettingsController
   _remote-controller/RemoteController
+  interrupt /bool := false
 
   constructor modules/Map settings/Map module/Module network/net.Client:
     _module-controller = ModuleController modules
@@ -49,11 +50,8 @@ class ApiHandler:
       else:
         write-error writer 404 "Not found"
     if exception:
-      if exception == "Interrupt":
-        throw "Interrupt"
-      else:
-        log.error "Error handling request"
-        write-error writer 500 "Internal server error"
+      log.error "Error handling request"
+      write-error writer 500 "Internal server error"
 
   handle-modules request/http.Request writer/http.ResponseWriter id/string?:
     if request.method == http.GET:
@@ -76,8 +74,4 @@ class ApiHandler:
 
   handle-interrupt writer/http.ResponseWriter:
     write-success writer 200
-    throw "Interrupt"
-
-handle-api request/http.Request writer/http.ResponseWriter settings/Map modules/Map module/Module network/net.Client:
-  handler := ApiHandler modules settings module network
-  handler.handle request writer
+    interrupt = true
