@@ -3,18 +3,19 @@ import gpio.adc
 import encoding.json
 import log
 import net
+import pulse-counter
 import ..libs.weather
 
 class Module:
   id /string := ?
+  weather /Weather := ?
+  last-seen /Time := ?
   ip /any := null
   online /bool := true
   inputs /List := []
   outputs /List := []
   analog-inputs /List := []
   pulse-counters /List := []
-  weather /Weather := ?
-  last-seen /Time := ?
 
   constructor id_/string _inputs/List _outputs/List _analog-inputs/List _pulse-counters/List --sda=47 --scl=48:
     id = id_
@@ -32,6 +33,9 @@ class Module:
 
     last-seen = Time.now
 
+  /*
+    Update the module's state by reading the inputs and analog inputs.
+  */
   update-state:
     inputs.do:
       it.read
@@ -130,7 +134,21 @@ class AnalogInput extends GenericPin:
 
 class PulseCounter:
   pin /int := ?
+  pin_ /gpio.Pin := ?
+  count /int := 0
+  pc /pulse-counter.Unit := ?
 
   constructor _pin/int:
     pin = _pin
+    pin_ = gpio.Pin pin
+    pc = pulse-counter.Unit pin_ 
+
+  read -> int:
+    count = pc.value
+    return count
+
+  clear:
+    pc.clear
+
+
 
