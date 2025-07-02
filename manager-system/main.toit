@@ -178,9 +178,9 @@ run-server:
       
     exception := catch:
       log.info "Starting HTTP server"
-      server := http.Server --max-tasks=3
-      socket := network.tcp-listen 80
       http-task := task::
+        server := http.Server --max-tasks=3
+        socket := network.tcp-listen 80
         server.listen socket:: | request writer |
           handle-http-request request writer
       //sleep (Duration --m=1)
