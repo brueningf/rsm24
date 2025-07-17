@@ -17,6 +17,8 @@ import .api.router
 import .api.utils
 import .Module
 
+import watchdog show WatchdogServiceClient
+
 AP-SSID     ::= "mywifi"
 AP-PASSWORD ::= "12345678"
 
@@ -75,40 +77,17 @@ main:
 
   pump-active := false // TMP variable
 
-  system.tune-memory-use 5
+  system.tune-memory-use 5 // optimize for low memory usage
 
+  // Create a watchdog client, and require feeding every 60 seconds
+  watchdog-client := WatchdogServiceClient
+  watchdog-client.open
+
+  dog := watchdog-client.create "mtsc-dog"
+  dog.start --s=60
+  
   // Runs the server in AP/STA mode
-  task:: run
-  task:: 
-    while true:
-      stats := system.process-stats --gc=false
-
-      allocated_memory := stats[STATS-INDEX-ALLOCATED-MEMORY]
-      reserved_memory := stats[STATS-INDEX-RESERVED-MEMORY]
-      system_free_memory := stats[STATS-INDEX-SYSTEM-FREE-MEMORY]
-      largest_free_area := stats[STATS-INDEX-SYSTEM-LARGEST-FREE]
-      bytes_allocated := stats[STATS-INDEX-BYTES-ALLOCATED-IN-OBJECT-HEAP]
-      gc_count := stats[STATS-INDEX-GC-COUNT]
-      full_gc_count := stats[STATS-INDEX-FULL-GC-COUNT]
-      full_compacting_gc_count := stats[STATS-INDEX-FULL-COMPACTING-GC-COUNT]
-
-      heap_utilization := (allocated_memory / reserved_memory)
-
-      free_heap := reserved_memory - allocated_memory
-      fragmentation_ratio := (largest_free_area / free_heap)
-
-      print "=== Memory and GC Statistics ==="
-      print "Allocated Memory (bytes):       $(allocated_memory)"
-      print "Reserved Memory (bytes):        $(reserved_memory)"
-      print "Heap Utilization:               $((heap_utilization * 100).stringify 3)"
-      print "System Free Memory (bytes):     $(system_free_memory)"
-      print "Largest Free Area (bytes):      $(largest_free_area)"
-      print "Fragmentation Ratio:            $(fragmentation_ratio)"
-      print "Bytes Allocated in Object Heap: $(bytes_allocated)"
-      print "GC Count (new-space):           $(gc_count)"
-      print "Full GC Count:                  $(full_gc_count)"
-      print "Full Compacting GC Count:       $(full_compacting_gc_count)"
-      sleep --ms=10000
+  task:: run (dog)
 
   // TMP pump control
   task --background::
@@ -163,6 +142,8 @@ main:
   task --background::
     while true:
       module.read-weather
+      dog.feed
+      log.info "Feeding watchdog"
       sleep --ms=5000
 
 
@@ -177,8 +158,9 @@ check-modules:
         log.info "Removing module " + m["id"]
         modules.remove m["id"]
  
-run:
+run dog:
   while true:
+    dog.feed
     // Communicate with module network
     log.info "establishing wifi in AP mode ($AP-SSID)"
     server-exception := catch:
@@ -189,6 +171,8 @@ run:
     log.info (interrupt ? "Server interrupted, stopping..." : "Server timeout, sending info to external server...")
 
     if interrupt:
+      dog.stop
+      dog.close
       break
     sleep --ms=1000
     
@@ -219,7 +203,7 @@ run-server:
         server.listen socket:: | request writer |
           handle-http-request request writer
       //sleep (Duration --m=1)
-      sleep --ms=10000
+      sleep --ms=30000
       http-task.cancel
     if exception:
       log.error "Server: $exception"

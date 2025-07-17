@@ -6,6 +6,7 @@ prefixes:
   http: pkg-http
   mqtt: mqtt
   ntp: pkg-ntp
+  watchdog: toit-watchdog
 packages:
   aht20-driver:
     url: github.com/davidlao2k/aht20-driver
@@ -37,3 +38,8 @@ packages:
     name: certificate-roots
     version: 1.11.0
     hash: c117dbba4757d7c69e91af7a875ab6989f051a33
+  toit-watchdog:
+    url: github.com/toitware/toit-watchdog
+    name: watchdog
+    version: 1.4.1
+    hash: 2621b25fca45f4f91c0b951f3658f3c18821edc4
