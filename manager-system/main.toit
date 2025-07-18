@@ -22,8 +22,8 @@ import watchdog show WatchdogServiceClient
 AP-SSID     ::= "mywifi"
 AP-PASSWORD ::= "12345678"
 
-EXTERNAL-WIFI-SSID     ::= "SPACELAB2"
-EXTERNAL-WIFI-PASSWORD ::= "x6254Y:gf7<3"
+EXTERNAL-WIFI-SSID     ::= "MERIDA RAMIREZ"
+EXTERNAL-WIFI-PASSWORD ::= "nose2025"
 
 CLIENT-ID ::= "local-pie"
 
@@ -43,6 +43,9 @@ settings ::= {
   "tank-a-threshold-2": 100,
   "pump-upper-bound": 850,
   "pump-lower-bound": 450,
+  "lvs1-lower-bound": 500,
+  "lvs1-middle-bound": 700,
+  "lvs1-upper-bound": 1050,
 }
 
 module := ?
@@ -73,38 +76,51 @@ main:
   log.info "loading module"
 
   // inputs, output[pin, default=0], analog-ins, pulse counter
-  module = Module "0" [15, 16, 38] [[8, 1], 9, 10, 11, 12, 13, [17, 1], [18, 1]] [4, 5, 6, 7] []
+  module = Module "0" [15, 16, 38] [9, 10, 11, 12, 13, [17, 1], [18, 1],[8, 1]] [4, 5, 6, 7] []
 
   pump-active := false // TMP variable
 
   system.tune-memory-use 5 // optimize for low memory usage
 
   // Create a watchdog client, and require feeding every 60 seconds
-  watchdog-client := WatchdogServiceClient
-  watchdog-client.open
+  //watchdog-client := WatchdogServiceClient
+  //watchdog-client.open
 
-  dog := watchdog-client.create "mtsc-dog"
-  dog.start --s=60
+  //dog := watchdog-client.create "mtsc-dog"
+  //dog.start --s=120
   
   // Runs the server in AP/STA mode
-  task:: run (dog)
+  task:: run
 
-  // TMP pump control
+  // first sequence
   task --background::
+    log.info modules.stringify
     while true:
-      if modules.contains "1" and network:
+      log.info "Checking modules"
+      if modules.contains "0" and modules.contains "1" and network:
+        log.info "Module 0 found, checking level"
         client := http.Client network
+        level := modules["0"]["analog-inputs"][2]["value"]
+        p3-active := false
         remote-module := modules["1"]
-        level := remote-module["analog-inputs"][0]
         output := remote-module["outputs"][1]
+        if level <= (settings["lvs1-middle-bound"] / 1000.0):
+          log.info "Level is low-middle, activating pump"
+          // attempt to fill
+          // open valve
+          module.outputs[0].set 1 // open valve
+          // turn on pump1 P1
+          p3-active = true
 
-        if level["value"] <= (settings["pump-lower-bound"] / 1000.0):
-          pump-active = false
-        else if level["value"] >= (settings["pump-upper-bound"] / 1000.0):
-          pump-active = true
+          // check if there is flow, if not cancel attempt
+        else if level >= (settings["lvs1-upper-bound"] / 1000.0):
+          // turn off pump p1
+          log.info "Level is high, deactivating pump"
+          // close valve
+          p3-active = false
 
         drive-pump-exception := catch:
-          if pump-active:
+          if p3-active:
             if output["value"] != 1:
               print "activate pump"
               // Send command to module
@@ -116,7 +132,10 @@ main:
               sleep (Duration --s=30)
         if drive-pump-exception:
           print "failed driving pump"
-      sleep --ms=2000
+      else:
+        log.info "Module 0 not found, waiting for it to connect"
+
+      sleep --ms=1000
 
   // Heart-beat
   task --background::
@@ -134,18 +153,13 @@ main:
         check-modules
       if exception:
         log.error "Exception: ModuleUpdate - $exception"
-
       sleep --ms=100
 
-  
   // Read module temperature
   task --background::
     while true:
       module.read-weather
-      dog.feed
-      log.info "Feeding watchdog"
       sleep --ms=5000
-
 
 check-modules:
   now := Time.now
@@ -158,9 +172,8 @@ check-modules:
         log.info "Removing module " + m["id"]
         modules.remove m["id"]
  
-run dog:
+run:
   while true:
-    dog.feed
     // Communicate with module network
     log.info "establishing wifi in AP mode ($AP-SSID)"
     server-exception := catch:
@@ -171,18 +184,18 @@ run dog:
     log.info (interrupt ? "Server interrupted, stopping..." : "Server timeout, sending info to external server...")
 
     if interrupt:
-      dog.stop
-      dog.close
+      //dog.stop
+      //dog.close
       break
     sleep --ms=1000
     
     // Connect to LAN
     log.info "Connecting to external network ($EXTERNAL-WIFI-SSID)"
     client-exception := catch:
-      run-client
+      log.info "run client"
+      //run-client
     if client-exception:
       log.info "Client: $client-exception"
-    sleep --ms=1000
 
 run-server:
   try:
@@ -202,8 +215,7 @@ run-server:
         socket := network.tcp-listen 80
         server.listen socket:: | request writer |
           handle-http-request request writer
-      //sleep (Duration --m=1)
-      sleep --ms=30000
+      sleep (Duration --m=2)
       http-task.cancel
     if exception:
       log.error "Server: $exception"
