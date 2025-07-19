@@ -60,6 +60,7 @@ data class Module(
     @SerializedName("inputs") val inputs: List<ModuleInput>,
     @SerializedName("outputs") val outputs: List<ModuleOutput>,
     @SerializedName("analog-inputs") val analogInputs: List<ModuleAnalogInput>,
+    @SerializedName("pulse-counters") val pulseCounters: List<ModulePulseCounter>?,
     @SerializedName("weather") val weather: WeatherObject,
     @SerializedName("online") var online: Boolean,
     @SerializedName("last-seen") val lastSeen: String
@@ -86,6 +87,12 @@ data class ModuleOutput(
 data class ModuleAnalogInput(
     @SerializedName("pin") val pin: Int,
     @SerializedName("value") val value: String
+)
+
+data class ModulePulseCounter(
+    @SerializedName("pin") val pin: Int,
+    @SerializedName("value") val value: Int,
+    @SerializedName("open") val isOpen: Boolean
 )
 
 data class WeatherObject(
@@ -211,7 +218,39 @@ fun ModuleCard(module: Module) {
             ) {
                 Text("Analog Inputs:")
                 for (analogInput in module.analogInputs) {
+                    Text("GPIO: ${analogInput.pin} | V: ${String.format("%.1f", analogInput.value.toDouble())}")
                     AnalogInputGraph(analogInput)
+                }
+            }
+
+            // Pulse Counters
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Space between inputs
+            ) {
+                Text("Pulse Counters:")
+                module.pulseCounters?.let { pulseCounters ->
+                    for ((index, pulseCounter) in pulseCounters.withIndex()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 5.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("${index + 1} | GPIO: ${pulseCounter.pin} | Count: ${pulseCounter.value}")
+
+                            // Circle indicator for open/closed state
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(if (pulseCounter.isOpen) Color.Green else Color.Gray) // Green if open, Gray if closed
+                            )
+                        }
+                    }
+                } ?: run {
+                    Text("No pulse counters available")
                 }
             }
 
@@ -296,11 +335,17 @@ fun OutputToggle(output: ModuleOutput, index: Int, module: Module) {
 @Composable
 fun AnalogInputGraph(analogInput: ModuleAnalogInput) {
     val values = remember { mutableStateListOf<Double>() }
+    val maxPoints = 100 // Keep last 100 points
 
-    // Append values without recomposition
+    // Add new value at each refresh interval
     LaunchedEffect(analogInput.value.toDouble()) {
-        values.add(analogInput.value.toDouble())
-        if (values.size > 50) values.removeAt(0)
+        val newValue = analogInput.value.toDouble()
+        values.add(newValue) // Add to the right (end of list)
+        
+        // Keep only the last maxPoints (remove from left)
+        if (values.size > maxPoints) {
+            values.removeAt(0) // Remove oldest point from left
+        }
     }
 
     // Use a mutable state for Line to avoid re-creating the list
@@ -324,15 +369,13 @@ fun AnalogInputGraph(analogInput: ModuleAnalogInput) {
         line.value = line.value.copy(values = values.toList())
     }
 
-    Text("GPIO: ${analogInput.pin} | V: ${analogInput.value}")
-
     LineChart(
         modifier = Modifier
             .fillMaxWidth()
             .height(120.dp)
             .padding(bottom = 16.dp),
-        data = listOf(line.value), // Use the mutable state line object
-        animationMode = AnimationMode.OneByOne, // Smooth sequential animation
+        data = listOf(line.value),
+        animationMode = AnimationMode.OneByOne,
         labelHelperProperties = LabelHelperProperties(false)
     )
 }

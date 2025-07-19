@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -35,7 +36,24 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlin.time.Duration.Companion.milliseconds
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.SocketTimeoutException
 
+
+// Network reachability check function
+suspend fun isDeviceReachable(host: String, port: Int = 80, timeout: Int = 3000): Boolean {
+    return try {
+        withContext(Dispatchers.IO) {
+            val socket = Socket()
+            socket.connect(InetSocketAddress(host, port), timeout)
+            socket.close()
+            true
+        }
+    } catch (e: Exception) {
+        false
+    }
+}
 
 // Retrofit API Interface
 interface ApiService {
@@ -116,7 +134,13 @@ fun DashboardScreen() {
     // Poll modules data every few seconds
     LaunchedEffect(Unit) {
         while (true) {
-            if (isConnected) {
+            // First check if the device is already reachable on current network
+            val deviceReachable = isDeviceReachable("200.200.200.1")
+            
+            if (deviceReachable) {
+                // Device is reachable, mark as connected and start data polling
+                wifiHelper.setConnected(true)
+                
                 coroutineScope.launch(Dispatchers.IO) {
                     try {
                         val settings = ApiClient.api.fetchSettings()
@@ -142,8 +166,35 @@ fun DashboardScreen() {
 
                     kotlinx.coroutines.delay(refreshRate)
                 }
+            } else if (isConnected) {
+                // Already connected to WiFi but device not reachable, continue polling
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        val settings = ApiClient.api.fetchSettings()
+                        settingsState.value = settings
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
 
+                while (true) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val modules = ApiClient.api.fetchModules()
+                            modulesState.clear()
+                            modulesState.addAll(modules)
+                        } catch (e: Exception) {
+                            e.printStackTrace() // Handle exceptions (e.g., network issues)
+                            modulesState.forEach { module ->
+                                module.online = false
+                            }
+                        }
+                    }
+
+                    kotlinx.coroutines.delay(refreshRate)
+                }
             } else {
+                // Device not reachable and not connected to WiFi, attempt WiFi connection
                 wifiHelper.connectToWiFi(ssid, password)
             }
 

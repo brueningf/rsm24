@@ -135,6 +135,11 @@ class WiFiManager(private val context: Context) : ViewModel() {
             }
         }
     }
+
+    // Public method to set connection state (for when device is reachable on current network)
+    fun setConnected(connected: Boolean) {
+        _isConnected.postValue(connected)
+    }
 }
 
 class WiFiManagerHelperFactory(private val context: Context) : ViewModelProvider.Factory {
@@ -159,6 +164,7 @@ fun WiFiConnectButton(ssid: String, password: String, wifiHelper: WiFiManager) {
         wifiHelper.checkWiFiConnection(ssid)
     }
 
+    // Only show the button when not connected
     if (!isConnected) {
         IconButton(
             onClick = {
@@ -174,9 +180,8 @@ fun WiFiConnectButton(ssid: String, password: String, wifiHelper: WiFiManager) {
             Icon(
                 imageVector = Icons.Outlined.Warning,
                 contentDescription = "WiFi Connection",
-                tint = if (isConnected) Color.Green else Color.Red
+                tint = Color.Red
             )
         }
-
     }
 }
