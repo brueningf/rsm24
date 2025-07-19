@@ -5,7 +5,7 @@ import encoding.json
 import net
 import system.storage
 
-import ..Module
+import ..module
 import .utils
 import .modules
 import .settings
@@ -33,10 +33,8 @@ class ApiHandler:
 
     if resourceList.size > 3:
       id = resourceList[3]
-      log.info "API id: $id"
     else if resourceList.size > 4:
       subAction = resourceList[4]
-      log.info "API subAction: $subAction"
 
     exception := catch:
       if action == "modules":

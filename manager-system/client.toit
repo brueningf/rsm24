@@ -7,7 +7,7 @@ import encoding.json
 import encoding.url
 import ..libs.utils
 
-import .Module
+import .module
 
 CAPTIVE_PORTAL_SSID     ::= "mywifi"
 CAPTIVE_PORTAL_PASSWORD ::= "12345678"

@@ -28,6 +28,8 @@ class Module:
         outputs.add (Output it)
     _analog-inputs.do:
       analog-inputs.add (AnalogInput it)
+    _pulse-counters.do:
+      pulse-counters.add (PulseCounter it)
 
     weather = Weather sda scl
 
@@ -56,6 +58,7 @@ class Module:
       "inputs": inputs.map: it.to-map,
       "outputs": outputs.map: it.to-map,
       "analog-inputs": analog-inputs.map: it.to-map,
+      "pulse-counters": pulse-counters.map: it.to-map,
       "weather": weather.to-map,
       "online": online.stringify,
       "last-seen": last-seen.stringify
@@ -134,21 +137,37 @@ class AnalogInput extends GenericPin:
 
 class PulseCounter:
   pin /int := ?
-  pin_ /gpio.Pin := ?
-  count /int := 0
-  pc /pulse-counter.Unit := ?
+  count /int := -1
+  pin_ /gpio.Pin? := null
+  pc /pulse-counter.Unit? := null
 
   constructor _pin/int:
     pin = _pin
-    pin_ = gpio.Pin pin
-    pc = pulse-counter.Unit pin_ 
 
   read -> int:
-    count = pc.value
+    if pc and not pc.is-closed:
+      count = pc.value
     return count
 
   clear:
-    pc.clear
+    if pc and not pc.is-closed:
+      pc.clear
+    count = -1
+  
+  open:
+    pin_ = gpio.Pin pin
+    pc = pulse-counter.Unit pin_ --glitch-filter-ns=500
 
+  close:
+    clear
+    pc.close
+    pin_.close
+
+  to-map:
+      return {
+        "pin": pin,
+        "value": count,
+        "open": pc != null and not pc.is-closed
+      }
 
 

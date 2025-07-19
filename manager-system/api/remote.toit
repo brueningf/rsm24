@@ -3,7 +3,7 @@ import log
 import encoding.json
 import net
 import .utils
-import ..Module
+import ..module
 
 class RemoteController:
   _modules/Map
