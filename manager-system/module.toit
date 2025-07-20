@@ -156,18 +156,17 @@ class PulseCounter:
   
   open:
     pin_ = gpio.Pin pin
-    pc = pulse-counter.Unit pin_ --glitch-filter-ns=500
+    pc = pulse-counter.Unit pin_ --glitch-filter-ns=900
 
   close:
-    clear
     pc.close
     pin_.close
 
   to-map:
-      return {
-        "pin": pin,
-        "value": count,
-        "open": pc != null and not pc.is-closed
-      }
+    return {
+      "pin": pin,
+      "value": count,
+      "open": pc != null and not pc.is-closed
+    }
 
 
