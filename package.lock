@@ -3,6 +3,7 @@ prefixes:
   aht20: aht20-driver
   bmp280: bmp280-driver
   certificate-roots: toit-cert-roots
+  cs5529: cs5529-driver
   http: pkg-http
   mqtt: mqtt
   ntp: pkg-ntp
@@ -18,6 +19,11 @@ packages:
     name: bmp280
     version: 1.0.0
     hash: 17824b46f0fd5b9355e616de4bb5603dd6e9f6eb
+  cs5529-driver:
+    url: github.com/brueningf/cs5529-driver
+    name: cs5529
+    version: 0.1.0
+    hash: 024f8579cf62b200157c8fc4a20ad994945316b1
   mqtt:
     url: github.com/toitware/mqtt
     name: mqtt
