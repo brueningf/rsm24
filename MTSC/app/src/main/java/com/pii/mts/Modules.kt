@@ -218,7 +218,10 @@ fun ModuleCard(module: Module) {
             ) {
                 Text("Analog Inputs:")
                 for (analogInput in module.analogInputs) {
-                    Text("GPIO: ${analogInput.pin} | V: ${String.format("%.1f", analogInput.value.toDouble())}")
+                    Text(
+                        "GPIO ${analogInput.pin}: ${String.format("%.3f", analogInput.value.toDouble())}V",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                     AnalogInputGraph(analogInput)
                 }
             }
@@ -376,7 +379,9 @@ fun AnalogInputGraph(analogInput: ModuleAnalogInput) {
             .padding(bottom = 16.dp),
         data = listOf(line.value),
         animationMode = AnimationMode.OneByOne,
-        labelHelperProperties = LabelHelperProperties(false)
+        labelHelperProperties = LabelHelperProperties(false),
+        minValue = 0.0,
+        maxValue = 3.3
     )
 }
 

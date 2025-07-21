@@ -32,6 +32,7 @@ import android.view.WindowManager;
 import androidx.annotation.RequiresApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -110,6 +111,7 @@ fun DashboardScreen() {
     val tanksState = remember { mutableStateListOf<Tank>() }
     val modulesState = remember { mutableStateListOf<Module>() } // State for modules
     val settingsState = remember { mutableStateOf<Map<String, Int>?>(null) }
+    val deviceReachableState = remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     val wifiHelper: WiFiManager = viewModel(factory = WiFiManagerHelperFactory(context))
@@ -136,6 +138,7 @@ fun DashboardScreen() {
         while (true) {
             // First check if the device is already reachable on current network
             val deviceReachable = isDeviceReachable("200.200.200.1")
+            deviceReachableState.value = deviceReachable
             
             if (deviceReachable) {
                 // Device is reachable, mark as connected and start data polling
@@ -219,18 +222,35 @@ fun DashboardScreen() {
 
     var selectedTabIndex by remember { mutableStateOf(0) }
 
-    val tabTitles = listOf("Modules", "Tanks", "Settings")
+    val tabTitles = listOf("Tanks", "Modules", "System")
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Multi-Tank System") },
+                title = { 
+                    if (selectedTabIndex == 3) {
+                        Text("Settings")
+                    } else {
+                        Text("Multi-Tank System")
+                    }
+                },
                 modifier = Modifier.statusBarsPadding(),
+                navigationIcon = {
+                    if (selectedTabIndex == 3) {
+                        IconButton(onClick = {
+                            selectedTabIndex = 0 // Go back to Tanks (default view)
+                        }) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
                 actions = {
-                    IconButton(onClick = {
-                        selectedTabIndex = 2
-                    }) {
-                        Icon(Icons.Filled.Settings, null)
+                    if (selectedTabIndex != 3) {
+                        IconButton(onClick = {
+                            selectedTabIndex = 3
+                        }) {
+                            Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                        }
                     }
 
                     WiFiConnectButton(ssid, password, wifiHelper)
@@ -245,18 +265,16 @@ fun DashboardScreen() {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Tabs
-            TabRow(selectedTabIndex = selectedTabIndex) {
-                tabTitles.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
-                        text = {
-                            if (title !== "Settings") {
-                                Text(title)
-                            }
-                        }
-                    )
+            // Tabs - only show for main content (Tanks, Modules, and System)
+            if (selectedTabIndex < 3) {
+                TabRow(selectedTabIndex = selectedTabIndex) {
+                    tabTitles.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { Text(title) }
+                        )
+                    }
                 }
             }
 
@@ -264,58 +282,24 @@ fun DashboardScreen() {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .weight(1f)
+                    .padding(
+                        start = if (selectedTabIndex == 3) 8.dp else 16.dp,
+                        end = if (selectedTabIndex == 3) 8.dp else 16.dp,
+                        top = if (selectedTabIndex == 3) 8.dp else 16.dp,
+                        bottom = if (selectedTabIndex == 3) 8.dp else 16.dp
+                    ),
             ) {
                 when (selectedTabIndex) {
-                    0 -> ModulesSection(modulesState)
-                    1 -> TankInfoSection(tanksState)
-                    2 -> SettingsSection(settingsState.value, saveSettings)
+                    0 -> TanksSection(modulesState, settingsState.value)
+                    1 -> ModulesSection(modulesState)
+                    2 -> SystemStatusSection(modulesState, isConnected, deviceReachableState.value, refreshRate)
+                    3 -> SettingsSection(settingsState.value, saveSettings)
                 }
             }
         }
     }
 }
-
-
-// Tank Info Section
-@Composable
-fun TankInfoSection(tanks: List<Tank>) {
-    if (tanks.isEmpty()) {
-        Text(
-            text = "Loading tanks...",
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-    } else {
-        for (tank in tanks) {
-            TankCard(tank)
-        }
-    }
-}
-
-// Individual Tank Card
-@Composable
-fun TankCard(tank: Tank) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Tank: ${tank.name}", style = MaterialTheme.typography.titleMedium)
-            Text("Threshold: ${tank.threshold}L")
-            Text("Volume: ${tank.volume}L")
-            Text("Current Level: ${tank.currentLevel}L")
-
-            LinearProgressIndicator(
-                progress = tank.currentLevel / tank.volume,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            )
-        }
-    }
-}
-
 
 // Retrofit Client
 object ApiClient {
