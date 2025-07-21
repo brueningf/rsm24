@@ -44,6 +44,7 @@ settings ::= {
   "lvs2-lower-bound": 500,
   "lvs2-middle-bound": 700,
   "lvs2-upper-bound": 1200,
+  "prs1-max": 1000,
 }
 
 module := ?
@@ -91,12 +92,12 @@ main:
   // first sequence
   task --background::
     while true:
-      tank1-procedure
+      tank-a-procedure
       sleep --ms=1000
 
   task --background::
     while true:
-      tank2-procedure
+      tank-b-procedure
       sleep --ms=1000
 
   // Heart-beat
@@ -123,13 +124,12 @@ main:
       module.read-weather
       sleep --ms=5000
 
-// keep tank 2 filled
-tank1-procedure:
+tank-a-procedure:
   if modules.contains "0" and modules.contains "1" and network:
-    log.info "Module found, checking level of tank A"
-    level := modules["0"]["analog-inputs"][2]["value"]
+    level /float := get-input-value "0" 2 // lvs1
+    log.info "Tank A procedure is running: $(level.stringify 3) mV"
     if level <= (settings["lvs1-middle-bound"] / 1000.0):
-      log.info "Level is low-middle, activating pump 3"
+      log.info "Tank A level is low-middle, activating P3"
       // attempt to fill
       module.outputs[0].set 1 // open valve
       sleep --ms=2000 // wait for valve to open
@@ -144,55 +144,68 @@ tank1-procedure:
       // check if there is flow, if not cancel attempt
       sleep (Duration --m=1) // wait for pulse count
       if module.pulse-counters[0].read < 10:
-        log.info "No flow detected, closing valve and deactivating pump 3"
+        log.info "No flow detected, closing valve and deactivating P3"
         drive-remote-pump false
         module.outputs[0].set 0 // close valve
         // do not retry for 5 minutes
         sleep (Duration --m=5)
       else:
-        log.info "Flow detected, keeping pump 3 active"
+        log.info "Flow detected, keeping P3 active"
         log.info "Flow count: $module.pulse-counters[0].read"
         drive-remote-pump false // turn off pump p3
       module.pulse-counters[0].read
       module.pulse-counters[0].close
 
     else if level >= (settings["lvs1-upper-bound"] / 1000.0):
-      log.info "Level is high, deactivating pump 3"
+      log.info "Tank A level is high, deactivating P3"
       // turn off pump p3
       drive-remote-pump false
       module.outputs[0].set 0 // close valve
   else:
     log.info "Module not found, waiting for it to connect"
 
-tank2-procedure:
+tank-b-procedure:
   if modules.contains "0" and modules.contains "1" and network:
-    log.info "Module found, checking level of tank B"
-    level-a := modules["0"]["analog-inputs"][2]["value"]
-    level-b := modules["1"]["analog-inputs"][0]["value"]
+    level-a /float := get-input-value "0" 2 // lvs1
+    level-b /float := get-input-value "1" 0 // lvs2
+
+    log.info "Tank B procedure is running: A $(level-a.stringify 3) mV, B $(level-b.stringify 3) mV"
     if level-a > (settings["lvs1-lower-bound"] / 1000.0) and level-b <= (settings["lvs2-middle-bound"] / 1000.0):
-      log.info "Level is low-middle, activating pump 1"
+      log.info "Tank B level is low-middle, activating P1"
       // attempt to fill
-      //module.pulse-counters[1].open // flws2
       module.outputs[5].set 0 // turn on pump 1
+
+      sleep --ms=2000 // wait for pump to start
+      pressure := get-input-value "0" 0 // prs1
+      if pressure >= (settings["prs1-max"] / 1000.0):
+        log.info "Pressure is high, deactivating P1"
+        module.outputs[5].set 1 // turn off pump 1
+      else:
+        log.info "Pressure is normal, keeping P1 active"
 
       // check if there is flow, if not cancel attempt
       module.pulse-counters[1].open // flws2
-      sleep --ms=2000 // wait for pump to start
+      sleep --ms=2000 // wait for pulse count
       if module.pulse-counters[1].read < 10:
-        log.info "No flow detected, deactivating pump 1"
-        module.outputs[5].set 1 // close pump 1
+        log.info "No flow detected, deactivating P1"
+        module.outputs[5].set 1 // turn off pump 1
       else:
-        log.info "Flow detected, keeping pump 1 active"
-        log.info "Flow count: $module.pulse-counters[1].read"
-      module.pulse-counters[1].read
+        log.info "Flow detected, keeping P1 active"
       module.pulse-counters[1].close
-
     else if level-b >= (settings["lvs2-upper-bound"] / 1000.0):
-      log.info "Level is high, deactivating pump 1"
-      // turn off pump p1
-      module.outputs[5].set 1 // close pump 1
+      log.info "Tank B level is high, deactivating P1"
+      module.outputs[5].set 1 // turn off pump 1
   else:
     log.info "Module not found, waiting for it to connect"
+
+get-input-value module-id/string input-index/int:
+  value := modules[module-id]["analog-inputs"][input-index]["value"]
+
+  if value is float:
+    return value
+
+  return float.parse value.to-byte-array
+    
 
 drive-remote-pump active/bool:
   client := http.Client network

@@ -11,6 +11,15 @@ class ModuleController:
 
   handle-get writer/http.ResponseWriter:
     content := _modules.values
+
+    // analog inputs with 3 decimal places
+    exception := catch:
+      content.do:
+        it["analog-inputs"].do: | input |
+          input["value"] = input["value"].stringify 3
+    if exception:
+      log.error "Error formatting analog inputs: $exception"
+
     write-success writer 200 (json.encode content)
 
   handle-post request/http.Request writer/http.ResponseWriter id/string?:

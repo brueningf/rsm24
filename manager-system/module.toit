@@ -70,13 +70,18 @@ abstract class GenericPin:
   value /int := 0
 
   to-map -> Map:
-    if pin is int:
+    if type == "analog-input":
       return {
         "pin": pin,
         "value": value,
       }
     else if type == "output":
       return to-map
+    else if pin is int:
+      return {
+          "pin": pin,
+          "value": value,
+      }
     else:
       return {
         "value": value,
@@ -126,6 +131,7 @@ class AnalogInput extends GenericPin:
   value /float := 0.0
   constructor _pin/int:
     pin = _pin
+    type = "analog-input"
 
   read -> float:
     p := gpio.Pin pin --input
