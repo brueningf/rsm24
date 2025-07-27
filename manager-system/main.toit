@@ -38,12 +38,12 @@ INDEX ::= """
 """
 
 settings ::= {
-  "lvs1-lower-bound": 500,
-  "lvs1-middle-bound": 700,
-  "lvs1-upper-bound": 1050,
+  "lvs1-lower-bound": 490,
+  "lvs1-middle-bound": 1000,
+  "lvs1-upper-bound": 2000,
   "lvs2-lower-bound": 500,
   "lvs2-middle-bound": 700,
-  "lvs2-upper-bound": 1200,
+  "lvs2-upper-bound": 2200,
   "prs1-max": 1000,
 }
 
@@ -161,8 +161,30 @@ tank-a-procedure:
       // turn off pump p3
       drive-remote-pump false
       module.outputs[0].set 0 // close valve
+  // PASSIVE FILLING
+  else if modules.contains "0" and network:
+    log.info "Module 1 not found, trying passive"
+    // attempt to fill
+    module.outputs[0].set 1 // open valve
+    sleep --ms=2000 // wait for valve to open
+    // check if there is flow, if not cancel attempt
+    module.pulse-counters[0].open // flws1
+    sleep --ms=5000 // wait for pulse count
+    if module.pulse-counters[0].read < 10:
+      log.info "No flow detected, closing valve and deactivating P3"
+      module.outputs[0].set 0 // close valve
+      // do not retry for 5 minutes
+      sleep (Duration --m=5)
+    else:
+      log.info "Flow detected, keeping valve active for passive filling"
+      log.info "Flow count: $module.pulse-counters[0].read"
+    module.pulse-counters[0].close
+    beep-alert
+    sleep --ms=5000
   else:
     log.info "Module not found, waiting for it to connect"
+    beep-alert
+    sleep --ms=5000
 
 tank-b-procedure:
   if modules.contains "0" and modules.contains "1" and network:
@@ -180,6 +202,8 @@ tank-b-procedure:
       if pressure >= (settings["prs1-max"] / 1000.0):
         log.info "Pressure is high, deactivating P1"
         module.outputs[5].set 1 // turn off pump 1
+        beep-alert
+        sleep (Duration --m=5) // wait for pump to stop
       else:
         log.info "Pressure is normal, keeping P1 active"
 
@@ -189,6 +213,7 @@ tank-b-procedure:
       if module.pulse-counters[1].read < 10:
         log.info "No flow detected, deactivating P1"
         module.outputs[5].set 1 // turn off pump 1
+        beep-alert
       else:
         log.info "Flow detected, keeping P1 active"
       module.pulse-counters[1].close
@@ -197,6 +222,14 @@ tank-b-procedure:
       module.outputs[5].set 1 // turn off pump 1
   else:
     log.info "Module not found, waiting for it to connect"
+ 
+beep-alert:
+  if modules.contains "0":
+    3.repeat:
+        module.outputs[4].set 1 // beep alert
+        sleep --ms=1000 // wait for beep
+        module.outputs[4].set 0 // turn off beep
+        sleep --ms=1000 // wait for beep
 
 get-input-value module-id/string input-index/int:
   value := modules[module-id]["analog-inputs"][input-index]["value"]
